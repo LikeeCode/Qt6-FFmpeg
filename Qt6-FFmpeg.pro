@@ -17,6 +17,9 @@ INCLUDEPATH += $$PWD/ffmpeg/include64
 
 LIBS += -L$$PWD/ffmpeg/winlib64/ -lavcodec -lavfilter -lavformat -lswscale -lavutil -lswresample -lavdevice
 
+#Linux
+#LIBS += -L$$PWD/ffmpeg/linuxlib64/ -lavfilter -lavformat -lavdevice -lavcodec -lswscale -lavutil -lswresample -lavdevice -lpthread -lm -lz -lrt -ldl
+
 # Additional import path used to resolve QML modules in Qt Creator's code model
 QML2_IMPORT_PATH += C:\Qt\6.2.2\mingw_64\qml
 

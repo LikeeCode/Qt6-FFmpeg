@@ -1,6 +1,4 @@
-QT += qml quick quickwidgets
-QT += quickcontrols2
-QT += multimedia multimediawidgets
+QT += qml quick
 
 CONFIG += c++11
 

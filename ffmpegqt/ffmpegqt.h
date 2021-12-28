@@ -31,6 +31,8 @@ extern "C" {
 #endif
 }
 
+#include <QImage>
+
 class FFmpegQt
 {
 private:
@@ -48,8 +50,13 @@ private:
     AVCodec *videoDecoder;              // Video decoding
     AVCodec *audioDecoder;              // Audio decoding
 
+    int frame_count, video_outbuf_size;
+
 public:
     FFmpegQt();
+
+    AVFrame* QImagetoAVFrame(QImage qImage);
+    QImage AVFrametoQImage(AVFrame* avFrame);
 };
 
 #endif // FFMPEGQT_H

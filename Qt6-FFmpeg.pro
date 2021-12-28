@@ -1,4 +1,5 @@
 QT += qml quick
+QT += quickcontrols2
 
 CONFIG += c++11
 
@@ -9,9 +10,11 @@ CONFIG += c++11
 RESOURCES += qml.qrc
 
 SOURCES += \
+    ffmpegqt/ffmpegqt.cpp \
     main.cpp
 
-HEADERS +=
+HEADERS += \
+    ffmpegqt/ffmpegqt.h
 
 INCLUDEPATH += $$PWD/ffmpeg/include64
 

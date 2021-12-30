@@ -16,10 +16,10 @@ extern "C" {
 #include "libavutil/imgutils.h"
 #include "libavutil/ffversion.h"
 #include "libavcodec/avcodec.h"
-#include "libswscale/swscale.h"
+//#include "libswscale/swscale.h"
 #include "libswresample/swresample.h"
-#include "libavformat/avformat.h"
-#include "libavfilter/avfilter.h"
+//#include "libavformat/avformat.h"
+//#include "libavfilter/avfilter.h"
 
 #ifdef ffmpegdevice
 #include "libavdevice/avdevice.h"
@@ -41,10 +41,10 @@ private:
     AVFrame *avFrame;                   // Frame object
     AVFrame *avFrame2;                  // Frame object
     AVFrame *avFrame3;                  // Frame object
-    AVFormatContext *avFormatContext;   // Format object
+//    AVFormatContext *avFormatContext;   // Format object
     AVCodecContext *videoCodec;         // Video decoder
     AVCodecContext *audioCodec;         // Audio decoder
-    SwsContext *swsContext;             // Process image data objects
+//    SwsContext *swsContext;             // Process image data objects
 
     AVDictionary *options;              // Parameter object
     AVCodec *videoDecoder;              // Video decoding

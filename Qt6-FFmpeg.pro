@@ -19,15 +19,15 @@ HEADERS += \
 #INCLUDEPATH += $$PWD/ffmpeg/include64
 INCLUDEPATH += /usr/include/x86_64-linux-gnu/
 
+#Windows
 #LIBS += -L$$PWD/ffmpeg/winlib64/ -lavcodec -lavfilter -lavformat -lswscale -lavutil -lswresample -lavdevice
-#LIBS += -L/usr/lib/x86_64-linux-gnu/ -lavcodec -lavfilter -lavformat -lswscale -lavutil -lswresample -lavdevice
-LIBS += -L/usr/lib/x86_64-linux-gnu/ -lavcodec -lavutil -lswresample
 
 #Linux
-#LIBS += -L$$PWD/ffmpeg/linuxlib64/ -lavfilter -lavformat -lavdevice -lavcodec -lswscale -lavutil -lswresample -lavdevice -lpthread -lm -lz -lrt -ldl
+LIBS += -L/usr/lib/x86_64-linux-gnu/ -lavcodec -lavfilter -lavformat -lswscale -lavutil -lswresample -lavdevice
+#LIBS += -lpthread -lm -lz -lrt -ldl
 
 # Additional import path used to resolve QML modules in Qt Creator's code model
-#QML2_IMPORT_PATH += C:\Qt\6.2.2\mingw_64\qml
+QML2_IMPORT_PATH +=
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

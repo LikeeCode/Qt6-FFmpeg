@@ -184,8 +184,8 @@ void FFmpegQt::createVideo(QString fileName, QString codecName)
     AVPacket *pkt;
     uint8_t endcode[] = { 0, 0, 1, 0xb7 };
 
-    filename = fileName.toStdString().c_str();
-    codec_name = codecName.toStdString().c_str();
+    filename = fileName.toLocal8Bit().data();
+    codec_name = codecName.toLocal8Bit().data();
 
     /* find the mpeg1video encoder */
     codec = avcodec_find_encoder_by_name(codec_name);

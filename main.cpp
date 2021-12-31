@@ -1,5 +1,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QString>
+#include <QStandardPaths>
 
 #include "ffmpegqt/ffmpegqt.h"
 
@@ -21,7 +23,8 @@ int main(int argc, char *argv[])
     engine.load(url);
 
     FFmpegQt ffmpegQt;
-    ffmpegQt.createVideo("MyVideo.mp4", "libx264");
+    QString fileName = QStandardPaths::writableLocation(QStandardPaths::StandardLocation::DocumentsLocation) + "/MyVideo.mp4";
+    ffmpegQt.createVideo(fileName, "libx264");
 
     return app.exec();
 }

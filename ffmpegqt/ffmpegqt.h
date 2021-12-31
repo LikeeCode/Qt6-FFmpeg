@@ -32,6 +32,7 @@ extern "C" {
 }
 
 #include <QImage>
+#include <QDebug>
 
 class FFmpegQt
 {
@@ -39,24 +40,35 @@ private:
     uint8_t *buffer;                    // Store decoded picture buffer
     AVPacket *avPacket;                 // Package object
     AVFrame *avFrame;                   // Frame object
-    AVFrame *avFrame2;                  // Frame object
-    AVFrame *avFrame3;                  // Frame object
-//    AVFormatContext *avFormatContext;   // Format object
+    AVFormatContext *avFormatContext;   // Format object
     AVCodecContext *videoCodec;         // Video decoder
     AVCodecContext *audioCodec;         // Audio decoder
-//    SwsContext *swsContext;             // Process image data objects
+    SwsContext *swsContext;             // Process image data objects
 
     AVDictionary *options;              // Parameter object
     AVCodec *videoDecoder;              // Video decoding
     AVCodec *audioDecoder;              // Audio decoding
 
+    FILE *file;
+
     int frame_count, video_outbuf_size;
+
+    void ffmpeg_encoder_init_frame(AVFrame **framep, int width, int height);
+    void ffmpeg_encoder_start(const char *filename, AVCodecID codecID, int fps, int width, int height);
+    void ffmpeg_encoder_finish(void);
+    void ffmpeg_encoder_set_frame_yuv_from_rgb(uint8_t *rgb);
+    void ffmpeg_encoder_encode_frame(uint8_t *rgb);
+
+    void encode(AVCodecContext *enc_ctx, AVFrame *frame, AVPacket *pkt, FILE *outfile);
 
 public:
     FFmpegQt();
 
-    AVFrame* QImagetoAVFrame(QImage qImage);
-    QImage AVFrametoQImage(AVFrame* avFrame);
+    void ffmpeg_encoder_encode_video(QString fileName, int width, int height, int numFrames);
+
+    void createVideo(QString fileName, QString codecName);
+    static AVFrame* QImagetoAVFrame(QImage qImage);
+    static QImage AVFrametoQImage(AVFrame* avFrame);
 };
 
 #endif // FFMPEGQT_H

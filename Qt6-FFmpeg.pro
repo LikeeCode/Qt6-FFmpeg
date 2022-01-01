@@ -14,7 +14,8 @@ SOURCES += \
     main.cpp
 
 HEADERS += \
-    ffmpegqt/ffmpegqt.h
+    ffmpegqt/ffmpegqt.h \
+    ffmpegqt/outputstream.h
 
 #INCLUDEPATH += $$PWD/ffmpeg/include64
 INCLUDEPATH += /usr/include/x86_64-linux-gnu/

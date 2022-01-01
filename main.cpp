@@ -22,8 +22,11 @@ int main(int argc, char *argv[])
     }, Qt::QueuedConnection);
     engine.load(url);
 
+    QString fileName = QStandardPaths::writableLocation(
+                QStandardPaths::StandardLocation::DocumentsLocation) +
+                "/muxing.mp4";
+
     FFmpegQt ffmpegQt;
-    QString fileName = QStandardPaths::writableLocation(QStandardPaths::StandardLocation::DocumentsLocation) + "/MyVideo.mp4";
     ffmpegQt.createVideo(fileName, "libx264");
 
     return app.exec();

@@ -75,56 +75,56 @@ void FFmpegQt::ffmpeg_encoder_set_frame_yuv_from_rgb(uint8_t *rgb) {
 }
 
 void FFmpegQt::ffmpeg_encoder_finish(void) {
-//    uint8_t endcode[] = { 0, 0, 1, 0xb7 };
-//    int got_output, ret;
+    uint8_t endcode[] = { 0, 0, 1, 0xb7 };
+    int got_output, ret;
 
-//    do {
-//        fflush(stdout);
-//        ret = avcodec_encode_video2(videoCodec, avPacket, NULL, &got_output);
+    do {
+        fflush(stdout);
+        ret = avcodec_encode_video2(videoCodec, avPacket, NULL, &got_output);
 
-//        if (ret < 0) {
-//            fprintf(stderr, "Error encoding frame\n");
-//            exit(1);
-//        }
+        if (ret < 0) {
+            fprintf(stderr, "Error encoding frame\n");
+            exit(1);
+        }
 
-//        if (got_output) {
-//            fwrite(avPacket.data, 1, avPacket.size, file);
-//            av_packet_unref(&avPacket);
-//        }
-//    } while (got_output);
+        if (got_output) {
+            fwrite(avPacket->data, 1, avPacket->size, file);
+            av_packet_unref(avPacket);
+        }
+    } while (got_output);
 
-//    fwrite(endcode, 1, sizeof(endcode), file);
-//    fclose(file);
+    fwrite(endcode, 1, sizeof(endcode), file);
+    fclose(file);
 
-//    avcodec_close(videoCodec);
+    avcodec_close(videoCodec);
 
-//    av_free(videoCodec);
-//    av_freep(&avFrame->data[0]);
-//    av_frame_free(&avFrame);
+    av_free(videoCodec);
+    av_freep(&avFrame->data[0]);
+    av_frame_free(&avFrame);
 }
 
 void FFmpegQt::ffmpeg_encoder_encode_frame(uint8_t *rgb) {
     Q_UNUSED(rgb)
 
-//    int ret, got_output;
+    int ret, got_output;
 
-//    ffmpeg_encoder_set_frame_yuv_from_rgb(rgb);
+    ffmpeg_encoder_set_frame_yuv_from_rgb(rgb);
 
-//    av_init_packet(&avPacket);
-//    avPacket.data = NULL;
-//    avPacket.size = 0;
+    av_init_packet(avPacket);
+    avPacket->data = NULL;
+    avPacket->size = 0;
 
-//    ret = avcodec_encode_video2(videoCodec, &avPacket, avFrame, &got_output);
+    ret = avcodec_encode_video2(videoCodec, avPacket, avFrame, &got_output);
 
-//    if (ret < 0) {
-//        fprintf(stderr, "Error encoding frame\n");
-//        exit(1);
-//    }
+    if (ret < 0) {
+        fprintf(stderr, "Error encoding frame\n");
+        exit(1);
+    }
 
-//    if (got_output) {
-//        fwrite(avPacket.data, 1, avPacket.size, file);
-//        av_packet_unref(&avPacket);
-    //    }
+    if (got_output) {
+        fwrite(avPacket->data, 1, avPacket->size, file);
+        av_packet_unref(avPacket);
+    }
 }
 
 void FFmpegQt::encode(AVCodecContext *enc_ctx, AVFrame *frame, AVPacket *pkt, FILE *outfile)

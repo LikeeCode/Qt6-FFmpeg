@@ -4,6 +4,7 @@
 #include <QStandardPaths>
 
 #include "ffmpegqt/ffmpegqt.h"
+#include "ffmpegqt/muxer.h"
 
 int main(int argc, char *argv[])
 {
@@ -28,6 +29,11 @@ int main(int argc, char *argv[])
 
     FFmpegQt ffmpegQt;
     ffmpegQt.createVideo(fileName, "libx264");
+
+    QMap<QString, QString> args{{"filename", fileName},
+                                {"-c:v", "libx264"}};
+    Muxer muxer;
+    muxer.createVideo(args);
 
     return app.exec();
 }

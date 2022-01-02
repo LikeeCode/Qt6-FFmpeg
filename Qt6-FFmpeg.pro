@@ -11,10 +11,12 @@ RESOURCES += qml.qrc
 
 SOURCES += \
     ffmpegqt/ffmpegqt.cpp \
+    ffmpegqt/muxer.cpp \
     main.cpp
 
 HEADERS += \
     ffmpegqt/ffmpegqt.h \
+    ffmpegqt/muxer.h \
     ffmpegqt/outputstream.h
 
 #INCLUDEPATH += $$PWD/ffmpeg/include64

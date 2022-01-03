@@ -23,17 +23,26 @@ int main(int argc, char *argv[])
     }, Qt::QueuedConnection);
     engine.load(url);
 
+//    QString fileName = QStandardPaths::writableLocation(
+//                QStandardPaths::StandardLocation::DocumentsLocation) +
+//                "/muxing.mp4";
+
+//    FFmpegQt ffmpegQt;
+//    ffmpegQt.createVideo(fileName, "libx264");
+
+//    QMap<QString, QString> args{{"filename", fileName},
+//                                {"-c:v", "libx264"}};
+    Muxer muxer;
+//    muxer.createVideo(args);
+
     QString fileName = QStandardPaths::writableLocation(
                 QStandardPaths::StandardLocation::DocumentsLocation) +
-                "/muxing.mp4";
+                "/DJI_0017.MP4";
 
-    FFmpegQt ffmpegQt;
-    ffmpegQt.createVideo(fileName, "libx264");
-
-    QMap<QString, QString> args{{"filename", fileName},
-                                {"-c:v", "libx264"}};
-    Muxer muxer;
-    muxer.createVideo(args);
+    int width, height;
+    unsigned char* data;
+    muxer.load_frame(fileName.toLocal8Bit().data(), &width, &height, &data);
+//    muxer.getFrame(fileName, "");
 
     return app.exec();
 }

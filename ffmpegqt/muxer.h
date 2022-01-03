@@ -31,13 +31,15 @@ extern "C" {
 
 #include <QImage>
 #include <QDebug>
+#include <QStandardPaths>
 
 #include "outputstream.h"
 
-#define STREAM_DURATION   10.0
-#define STREAM_FRAME_RATE 25 /* 25 images/s */
-#define STREAM_PIX_FMT    AV_PIX_FMT_YUV420P /* default pix_fmt */
-#define SCALE_FLAGS SWS_BICUBIC
+#define STREAM_DURATION     10.0
+#define STREAM_FRAME_RATE   25 /* 25 images/s */
+#define STREAM_PIX_FMT      AV_PIX_FMT_YUV420P /* default pix_fmt */
+#define SCALE_FLAGS         SWS_BICUBIC
+#define INBUF_SIZE          4096
 
 class Muxer
 {
@@ -54,9 +56,11 @@ private:
     AVCodec *videoDecoder;              // Video decoding
     AVCodec *audioDecoder;              // Audio decoding
 
+    static AVFrame *pFrmDst;
+    static SwsContext *img_convert_ctx;
+
     FILE *file;
 
-    void log_packet(const AVFormatContext *fmt_ctx, const AVPacket *pkt);
     int write_frame(AVFormatContext *fmt_ctx, AVCodecContext *c,
                     AVStream *st, AVFrame *frame, AVPacket *pkt);
     void add_stream(OutputStream *ost, AVFormatContext *oc,
@@ -81,9 +85,15 @@ private:
 public:
     Muxer();
 
+    bool load_frame(const char* filename, int* width, int* height, unsigned char** data);
+    void decode(AVCodecContext *dec_ctx, AVFrame *frame, AVPacket *pkt, const char *filename);
+    int getFrame(QString input, QString output);
+
     int createVideo(QMap<QString, QString> args);
+
     static AVFrame* QImagetoAVFrame(QImage qImage);
     static QImage AVFrametoQImage(AVFrame* avFrame);
+    static QImage avFrame2QImage(AVFrame *frame);
 };
 
 #endif // MUXER_H

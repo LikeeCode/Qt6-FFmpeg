@@ -1,18 +1,10 @@
 #include "muxer.h"
 
+AVFrame* Muxer::pFrmDst;
+SwsContext* Muxer::img_convert_ctx;
+
 Muxer::Muxer()
 {
-}
-
-void Muxer::log_packet(const AVFormatContext *fmt_ctx, const AVPacket *pkt)
-{
-    AVRational *time_base = &fmt_ctx->streams[pkt->stream_index]->time_base;
-
-//    printf("pts:%s pts_time:%s dts:%s dts_time:%s duration:%s duration_time:%s stream_index:%d\n",
-//           av_ts2str(pkt->pts), av_ts2timestr(pkt->pts, time_base),
-//           av_ts2str(pkt->dts), av_ts2timestr(pkt->dts, time_base),
-//           av_ts2str(pkt->duration), av_ts2timestr(pkt->duration, time_base),
-//           pkt->stream_index);
 }
 
 int Muxer::write_frame(AVFormatContext *fmt_ctx, AVCodecContext *c,
@@ -41,7 +33,6 @@ int Muxer::write_frame(AVFormatContext *fmt_ctx, AVCodecContext *c,
         pkt->stream_index = st->index;
 
         /* Write the compressed frame to the media file. */
-        log_packet(fmt_ctx, pkt);
         ret = av_interleaved_write_frame(fmt_ctx, pkt);
         /* pkt is now blank (av_interleaved_write_frame() takes ownership of
          * its contents and resets pkt), so that no unreferencing is necessary.
@@ -378,8 +369,7 @@ void Muxer::open_video(AVFormatContext *oc, const AVCodec *codec,
     }
 }
 
-void Muxer::fill_yuv_image(AVFrame *pict, int frame_index,
-                           int width, int height)
+void Muxer::fill_yuv_image(AVFrame *pict, int frame_index, int width, int height)
 {
     int x, y, i;
 
@@ -453,6 +443,251 @@ void Muxer::close_stream(AVFormatContext *oc, OutputStream *ost)
     av_packet_free(&ost->tmp_pkt);
     sws_freeContext(ost->sws_ctx);
     swr_free(&ost->swr_ctx);
+}
+
+bool Muxer::load_frame(const char*filename, int *width, int *height, unsigned char **data)
+{
+    // Open file using libavformat
+    AVFormatContext* av_format_ctx = avformat_alloc_context();
+    if(!av_format_ctx){
+        qDebug() << "Could not create AVFormatContext";
+        return false;
+    }
+
+    if(avformat_open_input(&av_format_ctx, filename, NULL, NULL) != 0){
+        qDebug() << "Could not open video file";
+        return false;
+    }
+
+    // Find the first valid video stream
+    AVCodecParameters* av_codec_params;
+    AVCodec* av_codec;
+    int video_stream_index = -1;
+
+    for(unsigned int i = 0; i < av_format_ctx->nb_streams; ++i){
+        auto stream = av_format_ctx->streams[i];
+        av_codec_params = stream->codecpar;
+        av_codec = avcodec_find_decoder(av_codec_params->codec_id);
+
+        if(av_codec && (av_codec->type == AVMEDIA_TYPE_VIDEO)){
+            video_stream_index = (int)i;
+            break;
+        }
+    }
+
+    if(video_stream_index == -1){
+        qDebug() << "Could not find video stream";
+        return false;
+    }
+
+    AVCodecContext* av_codec_ctx = avcodec_alloc_context3(av_codec);
+    if(!av_codec_ctx){
+        qDebug() << "Could not create AVCodecContext";
+        return false;
+    }
+
+    if(avcodec_parameters_to_context(av_codec_ctx, av_codec_params) < 0){
+        qDebug() << "Could not initialize AVCodecContext";
+        return false;
+    }
+
+    if(avcodec_open2(av_codec_ctx, av_codec, NULL) < 0){
+        qDebug() << "Could not open codec";
+        return false;
+    }
+
+    // Extract actual data
+    AVFrame* av_frame = av_frame_alloc();
+    if(!av_frame){
+        qDebug() << "Could not allocate AVFrame";
+        return false;
+    }
+
+    AVPacket* av_packet = av_packet_alloc();
+    if(!av_packet){
+        qDebug() << "Could not allocate AVPacket";
+        return false;
+    }
+
+    int response;
+    int framesCounter = 0;
+    while(av_read_frame(av_format_ctx, av_packet) >= 0){
+        if(av_packet->stream_index == video_stream_index){
+            response = avcodec_send_packet(av_codec_ctx, av_packet);
+            if (response < 0 || response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
+                qDebug() << "Failed to decode packet " << response;
+                break;
+            }
+
+            while(response >= 0){
+                response = avcodec_receive_frame(av_codec_ctx, av_frame);
+                if((response == AVERROR(EAGAIN)) || (response == AVERROR_EOF)){
+                    break;
+                }
+
+//                qDebug() << "Frame: " << av_frame->pts << " " << av_frame->width << "x" << av_frame->height;
+//                unsigned char* sdata = new unsigned char[av_frame->width * av_frame->height * 3];
+//                for(int y = 0; y < av_frame->height; ++y){
+//                    for(int x = 0; x < av_frame->width; ++x){
+//                        sdata[y * av_frame->width * 3 + x * 3    ] = av_frame->data[0][y * av_frame->linesize[0] + x];
+//                        sdata[y * av_frame->width * 3 + x * 3 + 1] = av_frame->data[0][y * av_frame->linesize[0] + x];
+//                        sdata[y * av_frame->width * 3 + x * 3 + 2] = av_frame->data[0][y * av_frame->linesize[0] + x];
+//                    }
+//                }
+
+//                QImage img = AVFrametoQImage(av_frame);
+                QImage img = avFrame2QImage(av_frame);
+                QString imgName = QStandardPaths::writableLocation(
+                            QStandardPaths::StandardLocation::DocumentsLocation) + "/img_" +
+                            QStringLiteral("%1").arg(framesCounter, 5, 10, QLatin1Char('0')) +
+                            ".png";
+                img.save(imgName);
+                framesCounter++;
+            }
+        }
+
+        av_packet_unref(av_packet);
+    }
+
+    // Close everything
+    avformat_close_input(&av_format_ctx);
+    avformat_free_context(av_format_ctx);
+    avcodec_free_context(&av_codec_ctx);
+
+    return true;
+}
+
+void Muxer::decode(AVCodecContext *dec_ctx, AVFrame *frame, AVPacket *pkt, const char *filename)
+{
+    char buf[1024];
+    int ret;
+
+    ret = avcodec_send_packet(dec_ctx, pkt);
+    if (ret < 0) {
+        fprintf(stderr, "Error sending a packet for decoding\n");
+//        exit(1);
+    }
+
+    while (ret >= 0) {
+        ret = avcodec_receive_frame(dec_ctx, frame);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+            return;
+        else if (ret < 0) {
+            fprintf(stderr, "Error during decoding\n");
+            exit(1);
+        }
+
+        printf("saving frame %3d\n", dec_ctx->frame_number);
+        fflush(stdout);
+
+        /* the picture is allocated by the decoder. no need to
+           free it */
+        qDebug() << "Frame: " << dec_ctx->frame_number;
+        qDebug() << frame->data[0];
+//        snprintf(buf, sizeof(buf), "%s-%d", filename, dec_ctx->frame_number);
+//        pgm_save(frame->data[0], frame->linesize[0],
+//                 frame->width, frame->height, buf);
+    }
+}
+
+int Muxer::getFrame(QString input, QString output){
+    const char *filename, *outfilename;
+    const AVCodec *codec;
+    AVCodecParserContext *parser;
+    AVCodecContext *c= NULL;
+    FILE *f;
+    AVFrame *frame;
+    uint8_t inbuf[INBUF_SIZE + AV_INPUT_BUFFER_PADDING_SIZE];
+    uint8_t *data;
+    size_t   data_size;
+    int ret;
+    AVPacket *pkt;
+
+    filename    = input.toLocal8Bit().data();
+    outfilename = output.toLocal8Bit().data();
+
+    pkt = av_packet_alloc();
+    if (!pkt)
+        exit(1);
+
+    /* set end of buffer to 0 (this ensures that no overreading happens for damaged MPEG streams) */
+    memset(inbuf + INBUF_SIZE, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+
+    /* find the MPEG-1 video decoder */
+    codec = avcodec_find_decoder(AV_CODEC_ID_MPEG1VIDEO);
+    if (!codec) {
+        fprintf(stderr, "Codec not found\n");
+        exit(1);
+    }
+
+    parser = av_parser_init(codec->id);
+    if (!parser) {
+        fprintf(stderr, "parser not found\n");
+        exit(1);
+    }
+
+    c = avcodec_alloc_context3(codec);
+    if (!c) {
+        fprintf(stderr, "Could not allocate video codec context\n");
+        exit(1);
+    }
+
+    /* For some codecs, such as msmpeg4 and mpeg4, width and height
+       MUST be initialized there because this information is not
+       available in the bitstream. */
+
+    /* open it */
+    if (avcodec_open2(c, codec, NULL) < 0) {
+        fprintf(stderr, "Could not open codec\n");
+        exit(1);
+    }
+
+    f = fopen(filename, "rb");
+    if (!f) {
+        fprintf(stderr, "Could not open %s\n", filename);
+        exit(1);
+    }
+
+    frame = av_frame_alloc();
+    if (!frame) {
+        fprintf(stderr, "Could not allocate video frame\n");
+        exit(1);
+    }
+
+    while (!feof(f)) {
+        /* read raw data from the input file */
+        data_size = fread(inbuf, 1, INBUF_SIZE, f);
+        if (!data_size)
+            break;
+
+        /* use the parser to split the data into frames */
+        data = inbuf;
+        while (data_size > 0) {
+            ret = av_parser_parse2(parser, c, &pkt->data, &pkt->size,
+                                   data, data_size, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
+            if (ret < 0) {
+                fprintf(stderr, "Error while parsing\n");
+                exit(1);
+            }
+            data      += ret;
+            data_size -= ret;
+
+            if (pkt->size)
+                decode(c, frame, pkt, outfilename);
+        }
+    }
+
+    /* flush the decoder */
+    decode(c, frame, NULL, outfilename);
+
+    fclose(f);
+
+    av_parser_close(parser);
+    avcodec_free_context(&c);
+    av_frame_free(&frame);
+    av_packet_free(&pkt);
+
+    return 0;
 }
 
 int Muxer::createVideo(QMap<QString, QString> args){
@@ -570,16 +805,16 @@ int Muxer::createVideo(QMap<QString, QString> args){
 }
 
 AVFrame* Muxer::QImagetoAVFrame(QImage qImage){
-    AVFrame *avFrame = av_frame_alloc();
-    avFrame->width = qImage.width();
-    avFrame->height = qImage.height();
-    avFrame->format = AV_PIX_FMT_ARGB;
-    avFrame->linesize[0] = qImage.width();
+    AVFrame *frame = av_frame_alloc();
+    frame->width = qImage.width();
+    frame->height = qImage.height();
+    frame->format = AV_PIX_FMT_ARGB;
+    frame->linesize[0] = qImage.width();
 
-//    av_image_fill_arrays(avFrame->data, avFrame->linesize, (uint8_t*)qImage.bits(),
-//                       AV_PIX_FMT_ARGB, avFrame->width, avFrame->height, 1);
+    av_image_fill_arrays(frame->data, frame->linesize, (uint8_t*)qImage.bits(),
+                       AV_PIX_FMT_ARGB, frame->width, frame->height, 1);
 
-    return avFrame;
+    return frame;
 }
 
 QImage Muxer::AVFrametoQImage(AVFrame* avFrame){
@@ -594,4 +829,52 @@ QImage Muxer::AVFrametoQImage(AVFrame* avFrame){
     }
 
     return qImage;
+}
+
+QImage Muxer::avFrame2QImage(AVFrame *frame)
+{
+    if(pFrmDst == nullptr){
+        pFrmDst = av_frame_alloc();
+    }
+
+    if (img_convert_ctx == nullptr)
+    {
+
+        img_convert_ctx =
+          sws_getContext(frame->width, frame->height,
+                         (AVPixelFormat)frame->format, frame->width, frame->height,
+                         AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
+
+        pFrmDst->format = AV_PIX_FMT_RGB24;
+        pFrmDst->width  = frame->width;
+        pFrmDst->height = frame->height;
+
+        if (av_frame_get_buffer(pFrmDst, 0) < 0)
+        {
+
+            return QImage();
+        }
+
+    }
+
+    if (img_convert_ctx == nullptr)
+    {
+
+            return QImage();
+    }
+
+    sws_scale(img_convert_ctx, (const uint8_t *const *)frame->data,
+              frame->linesize, 0, frame->height, pFrmDst->data,
+              pFrmDst->linesize);
+
+    QImage img(pFrmDst->width, pFrmDst->height, QImage::Format_RGB888);
+    for(int y=0; y<pFrmDst->height; ++y)
+    {
+
+        memcpy(img.scanLine(y), pFrmDst->data[0]+y*pFrmDst->linesize[0], pFrmDst->linesize[0]);
+    }
+
+//    av_frame_free(&pFrmDst);
+
+    return img;
 }

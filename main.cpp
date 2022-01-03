@@ -41,8 +41,8 @@ int main(int argc, char *argv[])
 
     int width, height;
     unsigned char* data;
-    muxer.load_frame(fileName.toLocal8Bit().data(), &width, &height, &data);
-//    muxer.getFrame(fileName, "");
+//    muxer.load_frame(fileName.toLocal8Bit().data(), &width, &height, &data);
+    muxer.renderQml();
 
     return app.exec();
 }

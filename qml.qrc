@@ -1,5 +1,9 @@
 <RCC>
     <qresource prefix="/">
         <file>qml/main.qml</file>
+        <file>qml/Overlay.qml</file>
+        <file>qml/OverlayDialog.qml</file>
+        <file>qml/img/overlay_frame.png</file>
+        <file>qml/img/overlay_pointer.png</file>
     </qresource>
 </RCC>

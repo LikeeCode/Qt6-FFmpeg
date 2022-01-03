@@ -535,8 +535,9 @@ bool Muxer::load_frame(const char*filename, int *width, int *height, unsigned ch
 //                    }
 //                }
 
-//                QImage img = AVFrametoQImage(av_frame);
+//                QImage img = AVFrametoQImage(av_frame); // doesn't work
                 QImage img = avFrame2QImage(av_frame);
+//                QImage img = frame2Image(av_frame); // doesn't work
                 QString imgName = QStandardPaths::writableLocation(
                             QStandardPaths::StandardLocation::DocumentsLocation) + "/img_" +
                             QStringLiteral("%1").arg(framesCounter, 5, 10, QLatin1Char('0')) +
@@ -877,4 +878,26 @@ QImage Muxer::avFrame2QImage(AVFrame *frame)
 //    av_frame_free(&pFrmDst);
 
     return img;
+}
+
+QImage Muxer::frame2Image(AVFrame* frame){
+    QImage img;
+    av_image_alloc(frame->data, frame->linesize, frame->width, frame->height, (AVPixelFormat)frame->format, 1);
+    av_image_fill_arrays(frame->data, frame->linesize, (uint8_t*)img.bits(),
+                         AV_PIX_FMT_ARGB, frame->width, frame->height, 1);
+    return img;
+}
+
+void Muxer::renderQml()
+{
+    view = new QQuickView();
+    view->setSource(QUrl(QStringLiteral("qrc:/qml/Overlay.qml")));
+    view->setGeometry(0, 0, 600, 300);
+    view->setColor(QColorConstants::Transparent);
+
+    QString imgName = QStandardPaths::writableLocation(
+                QStandardPaths::StandardLocation::DocumentsLocation) + "/overlay.png";
+
+    QImage img = view->grabWindow();
+    img.save(imgName);
 }

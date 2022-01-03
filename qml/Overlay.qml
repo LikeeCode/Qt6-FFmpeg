@@ -1,7 +1,10 @@
 import QtQuick 2.0
 
-Item {
+Rectangle {
     id: root
+    implicitWidth: 600
+    implicitHeight: 300
+    color: 'transparent'
 
     Timer {
         id: numericValueTimer
@@ -42,7 +45,7 @@ Item {
     Image{
         id: frame
         anchors.fill: root
-        source: "Img/overlay_frame.png"
+        source: "img/overlay_frame.png"
     }
 
     Rectangle{
@@ -99,7 +102,7 @@ Item {
         anchors.leftMargin: 72
         anchors.bottom: range.bottom
         anchors.bottomMargin: 5
-        source: "Img/overlay_pointer.png"
+        source: "img/overlay_pointer.png"
 
         SequentialAnimation on anchors.leftMargin {
             loops: Animation.Infinite

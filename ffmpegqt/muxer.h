@@ -32,6 +32,10 @@ extern "C" {
 #include <QImage>
 #include <QDebug>
 #include <QStandardPaths>
+#include <QQuickView>
+#include <QQuickItem>
+#include <QQuickWindow>
+#include <QPainter>
 
 #include "outputstream.h"
 
@@ -82,6 +86,9 @@ private:
     int write_video_frame(AVFormatContext *oc, OutputStream *ost);
     void close_stream(AVFormatContext *oc, OutputStream *ost);
 
+    QQuickView* view;
+    QQuickWindow* window;
+
 public:
     Muxer();
 
@@ -91,9 +98,12 @@ public:
 
     int createVideo(QMap<QString, QString> args);
 
+    void renderQml();
+
     static AVFrame* QImagetoAVFrame(QImage qImage);
     static QImage AVFrametoQImage(AVFrame* avFrame);
     static QImage avFrame2QImage(AVFrame *frame);
+    static QImage frame2Image(AVFrame* frame);
 };
 
 #endif // MUXER_H

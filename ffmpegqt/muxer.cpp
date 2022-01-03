@@ -899,5 +899,14 @@ void Muxer::renderQml()
                 QStandardPaths::StandardLocation::DocumentsLocation) + "/overlay.png";
 
     QImage img = view->grabWindow();
-    img.save(imgName);
+    QImage bg(1920, 1080, QImage::Format_ARGB32);
+    bg.fill(QColorConstants::Blue);
+
+    QPainter p(&bg);
+//    p.setCompositionMode(QPainter::CompositionMode_DestinationIn);
+    p.drawImage(50, 50, img);
+    p.end();
+
+//    img.save(imgName);
+    bg.save(imgName);
 }

@@ -513,6 +513,16 @@ bool Muxer::load_frame(const char*filename, int *width, int *height, unsigned ch
     int framesCounter = 0;
     while(av_read_frame(av_format_ctx, av_packet) >= 0){
         if(av_packet->stream_index == video_stream_index){
+            // Timestamp
+            double pts = 0.0;
+            if(av_packet->dts != AV_NOPTS_VALUE) {
+                  pts = av_packet->dts;
+            }
+            qDebug() << "INIT PTS: " << pts;
+
+            auto timeBase = av_format_ctx->streams[video_stream_index]->time_base;
+            qDebug() << "TIMEBASE: " << av_q2d(timeBase);
+
             response = avcodec_send_packet(av_codec_ctx, av_packet);
             if (response < 0 || response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
                 qDebug() << "Failed to decode packet " << response;
@@ -524,6 +534,10 @@ bool Muxer::load_frame(const char*filename, int *width, int *height, unsigned ch
                 if((response == AVERROR(EAGAIN)) || (response == AVERROR_EOF)){
                     break;
                 }
+
+                // Get frame timestamp
+                pts *= av_q2d(timeBase);
+                qDebug() << "Timestamp: " << pts;
 
 //                qDebug() << "Frame: " << av_frame->pts << " " << av_frame->width << "x" << av_frame->height;
 //                unsigned char* sdata = new unsigned char[av_frame->width * av_frame->height * 3];

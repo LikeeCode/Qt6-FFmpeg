@@ -44,8 +44,10 @@ int main(int argc, char *argv[])
                 QStandardPaths::StandardLocation::DocumentsLocation) +
                 "/DJI_0017.MP4";
 
-//    muxer.load_frame(fileName.toLocal8Bit().data(), &width, &height, &data);
-    muxer.renderQml(&engine);
+    int width, height;
+    unsigned char *data;
+    muxer.load_frame(fileName.toLocal8Bit().data(), &width, &height, &data);
+//    muxer.renderQml(&engine);
 
     return app.exec();
 }

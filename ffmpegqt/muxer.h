@@ -35,6 +35,10 @@ extern "C" {
 #include <QQuickView>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QQmlProperty>
+#include <QObject>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
 #include <QPainter>
 
 #include "outputstream.h"
@@ -88,6 +92,7 @@ private:
 
     QQuickView* view;
     QQuickWindow* window;
+    QObject* object;
 
 public:
     Muxer();
@@ -98,7 +103,7 @@ public:
 
     int createVideo(QMap<QString, QString> args);
 
-    void renderQml();
+    void renderQml(QQmlApplicationEngine* engine);
 
     static AVFrame* QImagetoAVFrame(QImage qImage);
     static QImage AVFrametoQImage(AVFrame* avFrame);

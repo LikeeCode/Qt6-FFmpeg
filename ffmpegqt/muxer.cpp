@@ -888,25 +888,26 @@ QImage Muxer::frame2Image(AVFrame* frame){
     return img;
 }
 
-void Muxer::renderQml()
+void Muxer::renderQml(QQmlApplicationEngine* engine)
 {
-    view = new QQuickView();
+    view = new QQuickView(engine, nullptr);
     view->setSource(QUrl(QStringLiteral("qrc:/qml/Overlay.qml")));
-    view->setGeometry(0, 0, 600, 300);
     view->setColor(QColorConstants::Transparent);
+//    view->setProperty("numericTextValue", 140);
+    view->rootContext()->setContextProperty("OVERLAY_NUMERIC", "140");
+    view->rootContext()->setContextProperty("OVERLAY_SHAPE", 0.8);
+    view->rootContext()->setContextProperty("OVERLAY_SLIDER", 0.5);
 
     QString imgName = QStandardPaths::writableLocation(
                 QStandardPaths::StandardLocation::DocumentsLocation) + "/overlay.png";
 
     QImage img = view->grabWindow();
     QImage bg(1920, 1080, QImage::Format_ARGB32);
-    bg.fill(QColorConstants::Blue);
+    bg.fill(QColorConstants::Black);
 
     QPainter p(&bg);
-//    p.setCompositionMode(QPainter::CompositionMode_DestinationIn);
     p.drawImage(50, 50, img);
     p.end();
 
-//    img.save(imgName);
     bg.save(imgName);
 }

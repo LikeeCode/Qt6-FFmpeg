@@ -15,6 +15,11 @@ int main(int argc, char *argv[])
     QGuiApplication app(argc, argv);
 
     QQmlApplicationEngine engine;
+
+    engine.rootContext()->setContextProperty("OVERLAY_NUMERIC", "");
+    engine.rootContext()->setContextProperty("OVERLAY_SHAPE", 0.0);
+    engine.rootContext()->setContextProperty("OVERLAY_SLIDER", 0.0);
+
     const QUrl url(QStringLiteral("qrc:/qml/main.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                      &app, [url](QObject *obj, const QUrl &objUrl) {
@@ -39,10 +44,8 @@ int main(int argc, char *argv[])
                 QStandardPaths::StandardLocation::DocumentsLocation) +
                 "/DJI_0017.MP4";
 
-    int width, height;
-    unsigned char* data;
 //    muxer.load_frame(fileName.toLocal8Bit().data(), &width, &height, &data);
-    muxer.renderQml();
+    muxer.renderQml(&engine);
 
     return app.exec();
 }

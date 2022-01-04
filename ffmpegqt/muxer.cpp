@@ -895,7 +895,7 @@ void Muxer::renderQml(QQmlApplicationEngine* engine)
     view->setColor(QColorConstants::Transparent);
 //    view->setProperty("numericTextValue", 140);
     view->rootContext()->setContextProperty("OVERLAY_NUMERIC", "140");
-    view->rootContext()->setContextProperty("OVERLAY_SHAPE", 0.8);
+    view->rootContext()->setContextProperty("OVERLAY_SHAPE", 0.5);
     view->rootContext()->setContextProperty("OVERLAY_SLIDER", 0.5);
 
     QString imgName = QStandardPaths::writableLocation(
@@ -903,7 +903,7 @@ void Muxer::renderQml(QQmlApplicationEngine* engine)
 
     QImage img = view->grabWindow();
     QImage bg(1920, 1080, QImage::Format_ARGB32);
-    bg.fill(QColorConstants::Black);
+    bg.fill(QColorConstants::Blue);
 
     QPainter p(&bg);
     p.drawImage(50, 50, img);

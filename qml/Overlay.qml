@@ -12,9 +12,9 @@ Rectangle {
 //    property real slider: 0.0
     property bool animationRunning: false
 
-//    onColorChanged: {
-//        console.log("color set");
-//    }
+    onColorChanged: {
+        console.log("color set");
+    }
 
 //    onNumericTextValueChanged: {
 //        console.log("numericTextValue set");

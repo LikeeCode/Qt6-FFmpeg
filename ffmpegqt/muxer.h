@@ -40,6 +40,8 @@ extern "C" {
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QPainter>
+#include <QRandomGenerator>
+#include <QPropertyAnimation>
 
 #include "outputstream.h"
 
@@ -48,6 +50,7 @@ extern "C" {
 #define STREAM_PIX_FMT      AV_PIX_FMT_YUV420P /* default pix_fmt */
 #define SCALE_FLAGS         SWS_BICUBIC
 #define INBUF_SIZE          4096
+#define SLIDER_ANIM_DUR     1000 // milliseconds
 
 class Muxer
 {
@@ -93,6 +96,13 @@ private:
     QQuickView* view;
     QQuickWindow* window;
     QObject* object;
+    QRandomGenerator randomGenerator;
+    QPropertyAnimation sliderAnimation;
+
+    QString getNumericValueAt(float timestamp);
+    float getShapeValueAt(float timestamp);
+    float getSliderValueAt(float timestamp);
+    void createSliderAnimation();
 
 public:
     Muxer();

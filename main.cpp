@@ -46,8 +46,18 @@ int main(int argc, char *argv[])
 
     int width, height;
     unsigned char *data;
-    muxer.load_frame(fileName.toLocal8Bit().data(), &width, &height, &data);
-//    muxer.renderQml(&engine);
+//    muxer.load_frame(fileName.toLocal8Bit().data(), &width, &height, &data);
+    qDebug() << muxer.getSliderValueAt(0.0);
+    qDebug() << muxer.getSliderValueAt(0.25);
+    qDebug() << muxer.getSliderValueAt(0.5);
+    qDebug() << muxer.getSliderValueAt(0.75);
+    qDebug() << muxer.getSliderValueAt(1.0);
+    qDebug() << muxer.getSliderValueAt(1.25);
+    qDebug() << muxer.getSliderValueAt(1.5);
+    qDebug() << muxer.getSliderValueAt(1.75);
+    qDebug() << muxer.getSliderValueAt(2.0);
+
+    muxer.renderQml(&engine);
 
     return app.exec();
 }

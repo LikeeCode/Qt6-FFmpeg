@@ -5,6 +5,7 @@ SwsContext* Muxer::img_convert_ctx;
 
 Muxer::Muxer()
 {
+    createSliderAnimation();
 }
 
 int Muxer::write_frame(AVFormatContext *fmt_ctx, AVCodecContext *c,
@@ -443,6 +444,50 @@ void Muxer::close_stream(AVFormatContext *oc, OutputStream *ost)
     av_packet_free(&ost->tmp_pkt);
     sws_freeContext(ost->sws_ctx);
     swr_free(&ost->swr_ctx);
+}
+
+QString Muxer::getNumericValueAt(float timestamp)
+{
+    static int lastTimestamp = 0;
+    static int lastValue = 0;
+
+    int currentTimestamp = static_cast<int>(timestamp / 1000);
+    if(currentTimestamp != lastTimestamp){
+        lastTimestamp = currentTimestamp;
+        lastValue = randomGenerator.bounded(99, 999);
+    }
+
+    return QString::number(lastValue);
+}
+
+float Muxer::getShapeValueAt(float timestamp)
+{
+    static int lastTimestamp = 0;
+    static float lastValue = 0.0f;
+
+    int currentTimestamp = static_cast<int>(timestamp / 300);
+    if(currentTimestamp != lastTimestamp){
+        lastTimestamp = currentTimestamp;
+        lastValue = randomGenerator.bounded(1.0);
+    }
+
+    return lastValue;
+}
+
+float Muxer::getSliderValueAt(float timestamp)
+{
+    int timestampInMs = timestamp * 1000;
+    int currentTime = timestampInMs % SLIDER_ANIM_DUR;
+    sliderAnimation.setCurrentTime(currentTime);
+    return sliderAnimation.currentValue().toFloat();
+}
+
+void Muxer::createSliderAnimation()
+{
+    sliderAnimation.setDuration(SLIDER_ANIM_DUR);
+    sliderAnimation.setKeyValueAt(0.0, 0.0);
+    sliderAnimation.setKeyValueAt(0.5, 1.0);
+    sliderAnimation.setKeyValueAt(1.0, 0.0);
 }
 
 bool Muxer::load_frame(const char*filename, int *width, int *height, unsigned char **data)
@@ -907,10 +952,13 @@ void Muxer::renderQml(QQmlApplicationEngine* engine)
     view = new QQuickView(engine, nullptr);
     view->setSource(QUrl(QStringLiteral("qrc:/qml/Overlay.qml")));
     view->setColor(QColorConstants::Transparent);
-//    view->setProperty("numericTextValue", 140);
+//    view->setProperty("color", "red");
+    view->setProperty("numericTextValue", 140);
     view->rootContext()->setContextProperty("OVERLAY_NUMERIC", "140");
     view->rootContext()->setContextProperty("OVERLAY_SHAPE", 0.5);
     view->rootContext()->setContextProperty("OVERLAY_SLIDER", 0.5);
+    qDebug() << view->property("color");
+    qDebug() << view->property("numericTextValue");
 
     QString imgName = QStandardPaths::writableLocation(
                 QStandardPaths::StandardLocation::DocumentsLocation) + "/overlay.png";

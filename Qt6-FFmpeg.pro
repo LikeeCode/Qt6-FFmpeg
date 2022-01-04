@@ -12,12 +12,16 @@ RESOURCES += qml.qrc
 SOURCES += \
     ffmpegqt/ffmpegqt.cpp \
     ffmpegqt/muxer.cpp \
+    ffmpegqt/transcoder.cpp \
     main.cpp
 
 HEADERS += \
     ffmpegqt/ffmpegqt.h \
+    ffmpegqt/filteringcontext.h \
     ffmpegqt/muxer.h \
-    ffmpegqt/outputstream.h
+    ffmpegqt/outputstream.h \
+    ffmpegqt/streamcontext.h \
+    ffmpegqt/transcoder.h
 
 #INCLUDEPATH += $$PWD/ffmpeg/include64
 INCLUDEPATH += /usr/include/x86_64-linux-gnu/

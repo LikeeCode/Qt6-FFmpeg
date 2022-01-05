@@ -32,11 +32,15 @@ private:
     AVCodecContext *audio_encoding_ctx;
     AVCodecContext *video_encoding_ctx;
 
+    AVStream *output_audio_stream;
+    AVStream *output_video_stream;
+
     int input_audio_stream_index = -1;
     int input_video_stream_index = -1;
 
 public:
     int openInputFile(QString filename);
+    int openOutputFile(QString filename);
 
     VideoMaster();
 };

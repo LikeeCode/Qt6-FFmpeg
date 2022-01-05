@@ -62,6 +62,7 @@ int main(int argc, char *argv[])
 
     VideoMaster videoMaster;
     videoMaster.openInputFile(input);
+    videoMaster.openOutputFile(output);
 
     return app.exec();
 }

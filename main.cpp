@@ -5,6 +5,7 @@
 
 #include "ffmpegqt/ffmpegqt.h"
 #include "ffmpegqt/muxer.h"
+#include "ffmpegqt/transcoder.h"
 
 int main(int argc, char *argv[])
 {
@@ -47,7 +48,14 @@ int main(int argc, char *argv[])
     int width, height;
     unsigned char *data;
 //    muxer.load_frame(fileName.toLocal8Bit().data(), &width, &height, &data);
-    muxer.renderQml(&engine);
+//    muxer.renderQml(&engine);
+
+    QString output = QStandardPaths::writableLocation(
+                QStandardPaths::StandardLocation::DocumentsLocation) +
+                "/DJI_0017_TRANSCODED.MP4";
+
+    Transcoder transcoder;
+    transcoder.transcode(fileName, output);
 
     return app.exec();
 }

@@ -39,6 +39,8 @@ extern "C" {
 #include "filteringcontext.h"
 #include "streamcontext.h"
 
+#include <QImage>
+#include <QStandardPaths>
 #include <QDebug>
 
 class Transcoder
@@ -59,10 +61,19 @@ private:
     int filter_encode_write_frame(AVFrame *frame, unsigned int stream_index);
     int flush_encoder(unsigned int stream_index);
 
+    void create_frame_overlay(AVCodecContext* codec_ctx, AVFrame* frame, AVPacket* packet);
+    double get_frame_timestamp(AVCodecContext* codec_ctx, AVPacket* packet);
+    QImage get_overlay_image(float timestamp);
+    QImage get_combined_image(QImage* bg, QImage* overlay);
+    QImage frame_to_image(AVFrame* frame);
+    AVFrame* image_to_frame(QImage* image);
+
+    uint64_t frames_counter = 0;
+
 public:
     Transcoder();
 
-    int transcode(int argc, char **argv);
+    int transcode(QString input, QString output);
 };
 
 #endif // TRANSCODER_H

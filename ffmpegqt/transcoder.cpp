@@ -29,34 +29,37 @@ int Transcoder::open_input_file(const char *filename)
     for (i = 0; i < ifmt_ctx->nb_streams; i++) {
         AVStream *stream = ifmt_ctx->streams[i];
         const AVCodec *dec = avcodec_find_decoder(stream->codecpar->codec_id);
-        AVCodecContext *codec_ctx;
+        AVCodecContext *codec_ctx = nullptr;
         if (!dec) {
             av_log(NULL, AV_LOG_ERROR, "Failed to find decoder for stream #%u\n", i);
-            return AVERROR_DECODER_NOT_FOUND;
+//            return AVERROR_DECODER_NOT_FOUND;
         }
-        codec_ctx = avcodec_alloc_context3(dec);
-        if (!codec_ctx) {
-            av_log(NULL, AV_LOG_ERROR, "Failed to allocate the decoder context for stream #%u\n", i);
-            return AVERROR(ENOMEM);
-        }
-        ret = avcodec_parameters_to_context(codec_ctx, stream->codecpar);
-        if (ret < 0) {
-            av_log(NULL, AV_LOG_ERROR, "Failed to copy decoder parameters to input decoder context "
-                   "for stream #%u\n", i);
-            return ret;
-        }
-        /* Reencode video & audio and remux subtitles etc. */
-        if (codec_ctx->codec_type == AVMEDIA_TYPE_VIDEO
-                || codec_ctx->codec_type == AVMEDIA_TYPE_AUDIO) {
-            if (codec_ctx->codec_type == AVMEDIA_TYPE_VIDEO)
-                codec_ctx->framerate = av_guess_frame_rate(ifmt_ctx, stream, NULL);
-            /* Open decoder */
-            ret = avcodec_open2(codec_ctx, dec, NULL);
+        else{
+            codec_ctx = avcodec_alloc_context3(dec);
+            if (!codec_ctx) {
+                av_log(NULL, AV_LOG_ERROR, "Failed to allocate the decoder context for stream #%u\n", i);
+                return AVERROR(ENOMEM);
+            }
+            ret = avcodec_parameters_to_context(codec_ctx, stream->codecpar);
             if (ret < 0) {
-                av_log(NULL, AV_LOG_ERROR, "Failed to open decoder for stream #%u\n", i);
+                av_log(NULL, AV_LOG_ERROR, "Failed to copy decoder parameters to input decoder context "
+                       "for stream #%u\n", i);
                 return ret;
             }
+            /* Reencode video & audio and remux subtitles etc. */
+            if (codec_ctx->codec_type == AVMEDIA_TYPE_VIDEO
+                    || codec_ctx->codec_type == AVMEDIA_TYPE_AUDIO) {
+                if (codec_ctx->codec_type == AVMEDIA_TYPE_VIDEO)
+                    codec_ctx->framerate = av_guess_frame_rate(ifmt_ctx, stream, NULL);
+                /* Open decoder */
+                ret = avcodec_open2(codec_ctx, dec, NULL);
+                if (ret < 0) {
+                    av_log(NULL, AV_LOG_ERROR, "Failed to open decoder for stream #%u\n", i);
+                    return ret;
+                }
+            }
         }
+
         stream_ctx[i].dec_ctx = codec_ctx;
 
         stream_ctx[i].dec_frame = av_frame_alloc();
@@ -67,6 +70,7 @@ int Transcoder::open_input_file(const char *filename)
     av_dump_format(ifmt_ctx, 0, filename, 0);
     return 0;
 }
+
 
 int Transcoder::open_output_file(const char *filename)
 {
@@ -84,84 +88,85 @@ int Transcoder::open_output_file(const char *filename)
         return AVERROR_UNKNOWN;
     }
 
-
     for (i = 0; i < ifmt_ctx->nb_streams; i++) {
-        out_stream = avformat_new_stream(ofmt_ctx, NULL);
-        if (!out_stream) {
-            av_log(NULL, AV_LOG_ERROR, "Failed allocating output stream\n");
-            return AVERROR_UNKNOWN;
-        }
+        if((ifmt_ctx->streams[i]->codecpar->codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO) ||
+           (ifmt_ctx->streams[i]->codecpar->codec_type == AVMediaType::AVMEDIA_TYPE_VIDEO)){
+            out_stream = avformat_new_stream(ofmt_ctx, NULL);
+            if (!out_stream) {
+                av_log(NULL, AV_LOG_ERROR, "Failed allocating output stream\n");
+                return AVERROR_UNKNOWN;
+            }
 
-        in_stream = ifmt_ctx->streams[i];
-        dec_ctx = stream_ctx[i].dec_ctx;
+            in_stream = ifmt_ctx->streams[i];
+            dec_ctx = stream_ctx[i].dec_ctx;
 
-        if (dec_ctx->codec_type == AVMEDIA_TYPE_VIDEO
-                || dec_ctx->codec_type == AVMEDIA_TYPE_AUDIO) {
-            /* in this example, we choose transcoding to same codec */
-            encoder = avcodec_find_encoder(dec_ctx->codec_id);
-            if (!encoder) {
-                av_log(NULL, AV_LOG_FATAL, "Necessary encoder not found\n");
+            if (dec_ctx->codec_type == AVMEDIA_TYPE_VIDEO
+                    || dec_ctx->codec_type == AVMEDIA_TYPE_AUDIO) {
+                /* in this example, we choose transcoding to same codec */
+                encoder = avcodec_find_encoder(dec_ctx->codec_id);
+                if (!encoder) {
+                    av_log(NULL, AV_LOG_FATAL, "Necessary encoder not found\n");
+                    return AVERROR_INVALIDDATA;
+                }
+                enc_ctx = avcodec_alloc_context3(encoder);
+                if (!enc_ctx) {
+                    av_log(NULL, AV_LOG_FATAL, "Failed to allocate the encoder context\n");
+                    return AVERROR(ENOMEM);
+                }
+
+                /* In this example, we transcode to same properties (picture size,
+                 * sample rate etc.). These properties can be changed for output
+                 * streams easily using filters */
+                if (dec_ctx->codec_type == AVMEDIA_TYPE_VIDEO) {
+                    enc_ctx->height = dec_ctx->height;
+                    enc_ctx->width = dec_ctx->width;
+                    enc_ctx->sample_aspect_ratio = dec_ctx->sample_aspect_ratio;
+                    /* take first format from list of supported formats */
+                    if (encoder->pix_fmts)
+                        enc_ctx->pix_fmt = encoder->pix_fmts[0];
+                    else
+                        enc_ctx->pix_fmt = dec_ctx->pix_fmt;
+                    /* video time_base can be set to whatever is handy and supported by encoder */
+                    enc_ctx->time_base = av_inv_q(dec_ctx->framerate);
+                } else {
+                    enc_ctx->sample_rate = dec_ctx->sample_rate;
+                    enc_ctx->channel_layout = dec_ctx->channel_layout;
+                    enc_ctx->channels = av_get_channel_layout_nb_channels(enc_ctx->channel_layout);
+                    /* take first format from list of supported formats */
+                    enc_ctx->sample_fmt = encoder->sample_fmts[0];
+                    enc_ctx->time_base = (AVRational){1, enc_ctx->sample_rate};
+                }
+
+                if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+                    enc_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+
+                /* Third parameter can be used to pass settings to encoder */
+                ret = avcodec_open2(enc_ctx, encoder, NULL);
+                if (ret < 0) {
+                    av_log(NULL, AV_LOG_ERROR, "Cannot open video encoder for stream #%u\n", i);
+                    return ret;
+                }
+                ret = avcodec_parameters_from_context(out_stream->codecpar, enc_ctx);
+                if (ret < 0) {
+                    av_log(NULL, AV_LOG_ERROR, "Failed to copy encoder parameters to output stream #%u\n", i);
+                    return ret;
+                }
+
+                out_stream->time_base = enc_ctx->time_base;
+                stream_ctx[i].enc_ctx = enc_ctx;
+            } else if (dec_ctx->codec_type == AVMEDIA_TYPE_UNKNOWN) {
+                av_log(NULL, AV_LOG_FATAL, "Elementary stream #%d is of unknown type, cannot proceed\n", i);
                 return AVERROR_INVALIDDATA;
-            }
-            enc_ctx = avcodec_alloc_context3(encoder);
-            if (!enc_ctx) {
-                av_log(NULL, AV_LOG_FATAL, "Failed to allocate the encoder context\n");
-                return AVERROR(ENOMEM);
-            }
-
-            /* In this example, we transcode to same properties (picture size,
-             * sample rate etc.). These properties can be changed for output
-             * streams easily using filters */
-            if (dec_ctx->codec_type == AVMEDIA_TYPE_VIDEO) {
-                enc_ctx->height = dec_ctx->height;
-                enc_ctx->width = dec_ctx->width;
-                enc_ctx->sample_aspect_ratio = dec_ctx->sample_aspect_ratio;
-                /* take first format from list of supported formats */
-                if (encoder->pix_fmts)
-                    enc_ctx->pix_fmt = encoder->pix_fmts[0];
-                else
-                    enc_ctx->pix_fmt = dec_ctx->pix_fmt;
-                /* video time_base can be set to whatever is handy and supported by encoder */
-                enc_ctx->time_base = av_inv_q(dec_ctx->framerate);
             } else {
-                enc_ctx->sample_rate = dec_ctx->sample_rate;
-                enc_ctx->channel_layout = dec_ctx->channel_layout;
-                enc_ctx->channels = av_get_channel_layout_nb_channels(enc_ctx->channel_layout);
-                /* take first format from list of supported formats */
-                enc_ctx->sample_fmt = encoder->sample_fmts[0];
-                enc_ctx->time_base = (AVRational){1, enc_ctx->sample_rate};
+                /* if this stream must be remuxed */
+                ret = avcodec_parameters_copy(out_stream->codecpar, in_stream->codecpar);
+                if (ret < 0) {
+                    av_log(NULL, AV_LOG_ERROR, "Copying parameters for stream #%u failed\n", i);
+                    return ret;
+                }
+                out_stream->time_base = in_stream->time_base;
             }
-
-            if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
-                enc_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-
-            /* Third parameter can be used to pass settings to encoder */
-            ret = avcodec_open2(enc_ctx, encoder, NULL);
-            if (ret < 0) {
-                av_log(NULL, AV_LOG_ERROR, "Cannot open video encoder for stream #%u\n", i);
-                return ret;
-            }
-            ret = avcodec_parameters_from_context(out_stream->codecpar, enc_ctx);
-            if (ret < 0) {
-                av_log(NULL, AV_LOG_ERROR, "Failed to copy encoder parameters to output stream #%u\n", i);
-                return ret;
-            }
-
-            out_stream->time_base = enc_ctx->time_base;
-            stream_ctx[i].enc_ctx = enc_ctx;
-        } else if (dec_ctx->codec_type == AVMEDIA_TYPE_UNKNOWN) {
-            av_log(NULL, AV_LOG_FATAL, "Elementary stream #%d is of unknown type, cannot proceed\n", i);
-            return AVERROR_INVALIDDATA;
-        } else {
-            /* if this stream must be remuxed */
-            ret = avcodec_parameters_copy(out_stream->codecpar, in_stream->codecpar);
-            if (ret < 0) {
-                av_log(NULL, AV_LOG_ERROR, "Copying parameters for stream #%u failed\n", i);
-                return ret;
-            }
-            out_stream->time_base = in_stream->time_base;
         }
-
     }
     av_dump_format(ofmt_ctx, 0, filename, 1);
 
@@ -379,6 +384,8 @@ int Transcoder::encode_write_frame(unsigned int stream_index, int flush)
     AVPacket *enc_pkt = filter->enc_pkt;
     int ret;
 
+//    create_frame_overlay(stream->dec_ctx, filt_frame, enc_pkt);
+
     av_log(NULL, AV_LOG_INFO, "Encoding frame\n");
     /* encode filtered frame */
     av_packet_unref(enc_pkt);
@@ -457,21 +464,87 @@ int Transcoder::flush_encoder(unsigned int stream_index)
     return encode_write_frame(stream_index, 1);
 }
 
-int Transcoder::transcode(int argc, char **argv)
+void Transcoder::create_frame_overlay(AVCodecContext* codec_ctx, AVFrame *frame, AVPacket *packet)
+{
+    // Get frame timestamp
+    // Get overlay values from animation
+    // Set overlay values
+    // Render overlay to imgB
+    // Extrace frame to imgA
+    // Put overlay to imgA
+    // Write data back to frame
+
+    float timestamp = get_frame_timestamp(codec_ctx, packet);
+    qDebug() << "Pts: " << timestamp;
+    QImage img = frame_to_image(frame);
+    QString imgName = QStandardPaths::writableLocation(
+                QStandardPaths::StandardLocation::DocumentsLocation) + "/img_" +
+                QStringLiteral("%1").arg(frames_counter, 5, 10, QLatin1Char('0')) +
+                ".png";
+    img.save(imgName);
+    frames_counter++;
+}
+
+double Transcoder::get_frame_timestamp(AVCodecContext* codec_ctx, AVPacket *packet)
+{
+    double pts = 0.0;
+    if(packet->dts != AV_NOPTS_VALUE) {
+          pts = packet->dts;
+    }
+
+    auto timeBase = codec_ctx->time_base;
+    pts *= av_q2d(timeBase);
+
+    return pts;
+}
+
+QImage Transcoder::frame_to_image(AVFrame *frame)
+{
+    AVFrame* pFrmDst = av_frame_alloc();
+
+    SwsContext* img_convert_ctx = sws_getContext(frame->width, frame->height,
+        (AVPixelFormat)frame->format, frame->width, frame->height,
+        AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
+
+    pFrmDst->format = AV_PIX_FMT_RGB24;
+    pFrmDst->width  = frame->width;
+    pFrmDst->height = frame->height;
+
+    if (av_frame_get_buffer(pFrmDst, 0) < 0)
+    {
+        return QImage();
+    }
+
+    if (img_convert_ctx == nullptr)
+    {
+        return QImage();
+    }
+
+    sws_scale(img_convert_ctx, (const uint8_t *const *)frame->data,
+              frame->linesize, 0, frame->height, pFrmDst->data,
+              pFrmDst->linesize);
+
+    QImage img(pFrmDst->width, pFrmDst->height, QImage::Format_RGB888);
+    for(int y=0; y<pFrmDst->height; ++y)
+    {
+        memcpy(img.scanLine(y), pFrmDst->data[0]+y*pFrmDst->linesize[0], pFrmDst->linesize[0]);
+    }
+
+    av_frame_free(&pFrmDst);
+
+    return img;
+}
+
+int Transcoder::transcode(QString input, QString output)
 {
     int ret;
     AVPacket *packet = NULL;
     unsigned int stream_index;
     unsigned int i;
 
-    if (argc != 3) {
-        av_log(NULL, AV_LOG_ERROR, "Usage: %s <input file> <output file>\n", argv[0]);
-        return 1;
-    }
-
-    if ((ret = open_input_file(argv[1])) < 0)
+    if ((ret = open_input_file(input.toLocal8Bit().data())) < 0)
         goto end;
-    if ((ret = open_output_file(argv[2])) < 0)
+    if ((ret = open_output_file(output.toLocal8Bit().data())) < 0)
         goto end;
     if ((ret = init_filters()) < 0)
         goto end;
@@ -514,13 +587,19 @@ int Transcoder::transcode(int argc, char **argv)
             }
         } else {
             /* remux this frame without reencoding */
-            av_packet_rescale_ts(packet,
-                                 ifmt_ctx->streams[stream_index]->time_base,
-                                 ofmt_ctx->streams[stream_index]->time_base);
+//            av_packet_rescale_ts(packet,
+//                                 ifmt_ctx->streams[stream_index]->time_base,
+//                                 ofmt_ctx->streams[stream_index]->time_base);
 
-            ret = av_interleaved_write_frame(ofmt_ctx, packet);
-            if (ret < 0)
-                goto end;
+            if(stream_ctx[stream_index].dec_ctx){
+                if((stream_ctx[stream_index].dec_ctx->codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO) ||
+                   (stream_ctx[stream_index].dec_ctx->codec_type == AVMediaType::AVMEDIA_TYPE_VIDEO)){
+                    ret = av_interleaved_write_frame(ofmt_ctx, packet);
+                    if (ret < 0)
+                        goto end;
+                }
+            }
+
         }
         av_packet_unref(packet);
     }

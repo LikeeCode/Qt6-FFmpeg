@@ -36,11 +36,19 @@ extern "C" {
 #endif
 }
 
+#define SLIDER_ANIM_DUR 1000 // milliseconds
+
 #include "filteringcontext.h"
 #include "streamcontext.h"
 
 #include <QImage>
 #include <QStandardPaths>
+#include <QPropertyAnimation>
+#include <QRandomGenerator>
+#include <QQmlApplicationEngine>
+#include <QQuickView>
+#include <QQmlContext>
+#include <QPainter>
 #include <QDebug>
 
 class Transcoder
@@ -62,7 +70,11 @@ private:
     int flush_encoder(unsigned int stream_index);
 
     void create_frame_overlay(AVCodecContext* codec_ctx, AVFrame* frame, AVPacket* packet);
-    double get_frame_timestamp(AVCodecContext* codec_ctx, AVPacket* packet);
+    double get_frame_timestamp(AVCodecContext* codec_ctx, AVFrame* frame);
+    void createSliderAnimation();
+    QString getNumericValueAt(float timestamp);
+    float getShapeValueAt(float timestamp);
+    float getSliderValueAt(float timestamp);
     QImage get_overlay_image(float timestamp);
     QImage get_combined_image(QImage* bg, QImage* overlay);
     QImage frame_to_image(AVFrame* frame);
@@ -70,8 +82,13 @@ private:
 
     uint64_t frames_counter = 0;
 
+    QQmlApplicationEngine* engine;
+    QPropertyAnimation sliderAnimation;
+    QRandomGenerator randomGenerator;
+    QQuickView* view;
+
 public:
-    Transcoder();
+    Transcoder(QQmlApplicationEngine* e);
 
     int transcode(QString input, QString output);
 };

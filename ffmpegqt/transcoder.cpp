@@ -1,8 +1,8 @@
 #include "transcoder.h"
 
-Transcoder::Transcoder()
+Transcoder::Transcoder(QQmlApplicationEngine* e) : engine(e)
 {
-
+    createSliderAnimation();
 }
 
 int Transcoder::open_input_file(const char *filename)
@@ -384,7 +384,7 @@ int Transcoder::encode_write_frame(unsigned int stream_index, int flush)
     AVPacket *enc_pkt = filter->enc_pkt;
     int ret;
 
-//    create_frame_overlay(stream->dec_ctx, filt_frame, enc_pkt);
+    create_frame_overlay(stream->dec_ctx, filt_frame, enc_pkt);
 
     av_log(NULL, AV_LOG_INFO, "Encoding frame\n");
     /* encode filtered frame */
@@ -474,28 +474,91 @@ void Transcoder::create_frame_overlay(AVCodecContext* codec_ctx, AVFrame *frame,
     // Put overlay to imgA
     // Write data back to frame
 
-    float timestamp = get_frame_timestamp(codec_ctx, packet);
+    float timestamp = get_frame_timestamp(codec_ctx, frame);
     qDebug() << "Pts: " << timestamp;
-    QImage img = frame_to_image(frame);
+//    QImage img = frame_to_image(frame);
+//    QString imgName = QStandardPaths::writableLocation(
+//                QStandardPaths::StandardLocation::DocumentsLocation) + "/img_" +
+//                QStringLiteral("%1").arg(frames_counter, 5, 10, QLatin1Char('0')) +
+//                ".png";
+//    img.save(imgName);
+//    frames_counter++;
+
+    QImage overlay_img = get_overlay_image(timestamp);
     QString imgName = QStandardPaths::writableLocation(
-                QStandardPaths::StandardLocation::DocumentsLocation) + "/img_" +
-                QStringLiteral("%1").arg(frames_counter, 5, 10, QLatin1Char('0')) +
-                ".png";
-    img.save(imgName);
-    frames_counter++;
+                QStandardPaths::StandardLocation::DocumentsLocation) + "/overlay.png";
+    overlay_img.save(imgName);
 }
 
-double Transcoder::get_frame_timestamp(AVCodecContext* codec_ctx, AVPacket *packet)
+double Transcoder::get_frame_timestamp(AVCodecContext* codec_ctx, AVFrame *frame)
 {
     double pts = 0.0;
-    if(packet->dts != AV_NOPTS_VALUE) {
-          pts = packet->dts;
-    }
 
     auto timeBase = codec_ctx->time_base;
-    pts *= av_q2d(timeBase);
+    pts = frame->pts * av_q2d(timeBase);
 
     return pts;
+}
+
+void Transcoder::createSliderAnimation()
+{
+    sliderAnimation.setDuration(SLIDER_ANIM_DUR);
+    sliderAnimation.setKeyValueAt(0.0, 0.0);
+    sliderAnimation.setKeyValueAt(0.5, 1.0);
+    sliderAnimation.setKeyValueAt(1.0, 0.0);
+}
+
+QString Transcoder::getNumericValueAt(float timestamp)
+{
+    static int lastTimestamp = 0;
+    static int lastValue = 0;
+
+    int currentTimestamp = static_cast<int>(timestamp * 1000.0f / 1000.0f);
+    if(currentTimestamp != lastTimestamp){
+        lastTimestamp = currentTimestamp;
+        lastValue = randomGenerator.bounded(99, 999);
+    }
+
+    return QString::number(lastValue);
+}
+
+float Transcoder::getShapeValueAt(float timestamp)
+{
+    static int lastTimestamp = 0;
+    static float lastValue = 0.0f;
+
+    int currentTimestamp = static_cast<int>(timestamp * 1000.0f / 300.0f);
+    if(currentTimestamp != lastTimestamp){
+        lastTimestamp = currentTimestamp;
+        lastValue = randomGenerator.bounded(20, 100) / 100.0f;
+    }
+
+    return lastValue;
+}
+
+float Transcoder::getSliderValueAt(float timestamp)
+{
+    int timestampInMs = timestamp * 1000;
+    int currentTime = timestampInMs % SLIDER_ANIM_DUR;
+    sliderAnimation.setCurrentTime(currentTime);
+    return sliderAnimation.currentValue().toFloat();
+}
+
+QImage Transcoder::get_overlay_image(float timestamp)
+{
+    view = new QQuickView(engine, nullptr);
+    view->setSource(QUrl(QStringLiteral("qrc:/qml/Overlay.qml")));
+    view->setColor(QColorConstants::Transparent);
+
+    QString numericValue = getNumericValueAt(timestamp);
+    float shapeValue = getShapeValueAt(timestamp);
+    float slideralue = getSliderValueAt(timestamp);
+
+    view->rootContext()->setContextProperty("OVERLAY_NUMERIC", numericValue);
+    view->rootContext()->setContextProperty("OVERLAY_SHAPE", shapeValue);
+    view->rootContext()->setContextProperty("OVERLAY_SLIDER", slideralue);
+
+    return view->grabWindow();
 }
 
 QImage Transcoder::frame_to_image(AVFrame *frame)
@@ -541,15 +604,20 @@ int Transcoder::transcode(QString input, QString output)
     AVPacket *packet = NULL;
     unsigned int stream_index;
     unsigned int i;
+    int ofmt_stream_index = 0;
 
-    if ((ret = open_input_file(input.toLocal8Bit().data())) < 0)
+    if ((ret = open_input_file(input.toLocal8Bit().data())) < 0){
         goto end;
-    if ((ret = open_output_file(output.toLocal8Bit().data())) < 0)
+    }
+    if ((ret = open_output_file(output.toLocal8Bit().data())) < 0){
         goto end;
-    if ((ret = init_filters()) < 0)
+    }
+    if ((ret = init_filters()) < 0){
         goto end;
-    if (!(packet = av_packet_alloc()))
+    }
+    if (!(packet = av_packet_alloc())){
         goto end;
+    }
 
     /* read all packets */
     while (1) {
@@ -587,14 +655,15 @@ int Transcoder::transcode(QString input, QString output)
             }
         } else {
             /* remux this frame without reencoding */
-//            av_packet_rescale_ts(packet,
-//                                 ifmt_ctx->streams[stream_index]->time_base,
-//                                 ofmt_ctx->streams[stream_index]->time_base);
-
             if(stream_ctx[stream_index].dec_ctx){
                 if((stream_ctx[stream_index].dec_ctx->codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO) ||
                    (stream_ctx[stream_index].dec_ctx->codec_type == AVMediaType::AVMEDIA_TYPE_VIDEO)){
+                    av_packet_rescale_ts(packet,
+                                         ifmt_ctx->streams[stream_index]->time_base,
+                                         ofmt_ctx->streams[ofmt_stream_index]->time_base);
+
                     ret = av_interleaved_write_frame(ofmt_ctx, packet);
+                    ofmt_stream_index++;
                     if (ret < 0)
                         goto end;
                 }

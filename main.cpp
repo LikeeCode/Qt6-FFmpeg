@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
                 QStandardPaths::StandardLocation::DocumentsLocation) +
                 "/DJI_0017_TRANSCODED.MP4";
 
-    Transcoder transcoder;
+    Transcoder transcoder(&engine);
     transcoder.transcode(fileName, output);
 
     return app.exec();

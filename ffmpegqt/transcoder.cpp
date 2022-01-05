@@ -1,5 +1,8 @@
 #include "transcoder.h"
 
+AVFrame* Transcoder::pFrmDst = nullptr;
+SwsContext* Transcoder::img_convert_ctx = nullptr;
+
 Transcoder::Transcoder(QQmlApplicationEngine* e) : engine(e)
 {
     createSliderAnimation();
@@ -466,22 +469,24 @@ int Transcoder::flush_encoder(unsigned int stream_index)
 
 void Transcoder::create_frame_overlay(AVCodecContext* codec_ctx, AVFrame *frame)
 {
-    float timestamp = get_frame_timestamp(codec_ctx, frame);
-    qDebug() << "Pts: " << timestamp;
+    if(codec_ctx && frame){
+            float timestamp = get_frame_timestamp(codec_ctx, frame);
+            qDebug() << "Pts: " << timestamp;
 
-//    QImage overlay_img = get_overlay_image(timestamp);
-//    QImage frame_img = frame_to_image(frame);
-//    QImage combined_img = get_combined_image(&frame_img, &overlay_img);
+            QImage overlay_img = get_overlay_image(timestamp);
+            QImage frame_img = frame_to_image(frame);
+        //    QImage combined_img = get_combined_image(&frame_img, &overlay_img);
 
-//    image_to_frame(&combined_img, frame);
+        //    image_to_frame(&combined_img, frame);
 
-//    QString imgName = QStandardPaths::writableLocation(
-//                QStandardPaths::StandardLocation::DocumentsLocation) + "/img_" +
-//                QStringLiteral("%1").arg(frames_counter, 5, 10, QLatin1Char('0')) +
-//                ".png";
+            QString imgName = QStandardPaths::writableLocation(
+                        QStandardPaths::StandardLocation::DocumentsLocation) + "/img_" +
+                        QStringLiteral("%1").arg(frames_counter, 5, 10, QLatin1Char('0')) +
+                        ".png";
 
-//    combined_img.save(imgName);
-//    frames_counter++;
+            frame_img.save(imgName);
+            frames_counter++;
+    }
 }
 
 double Transcoder::get_frame_timestamp(AVCodecContext* codec_ctx, AVFrame *frame)
@@ -566,24 +571,33 @@ QImage Transcoder::get_combined_image(QImage *bg, QImage *overlay)
 
 QImage Transcoder::frame_to_image(AVFrame *frame)
 {
-    AVFrame* pFrmDst = av_frame_alloc();
-
-    SwsContext* img_convert_ctx = sws_getContext(frame->width, frame->height,
-        (AVPixelFormat)frame->format, frame->width, frame->height,
-        AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
-
-    pFrmDst->format = AV_PIX_FMT_RGB24;
-    pFrmDst->width  = frame->width;
-    pFrmDst->height = frame->height;
-
-    if (av_frame_get_buffer(pFrmDst, 0) < 0)
-    {
-        return QImage();
+    if(pFrmDst == nullptr){
+        pFrmDst = av_frame_alloc();
     }
 
     if (img_convert_ctx == nullptr)
     {
-        return QImage();
+
+        img_convert_ctx =
+          sws_getContext(frame->width, frame->height,
+                         (AVPixelFormat)frame->format, frame->width, frame->height,
+                         AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
+
+        pFrmDst->format = AV_PIX_FMT_RGB24;
+        pFrmDst->width  = frame->width;
+        pFrmDst->height = frame->height;
+
+        if (av_frame_get_buffer(pFrmDst, 0) < 0)
+        {
+            return QImage();
+        }
+
+    }
+
+    if (img_convert_ctx == nullptr)
+    {
+
+            return QImage();
     }
 
     sws_scale(img_convert_ctx, (const uint8_t *const *)frame->data,
@@ -593,10 +607,11 @@ QImage Transcoder::frame_to_image(AVFrame *frame)
     QImage img(pFrmDst->width, pFrmDst->height, QImage::Format_RGB888);
     for(int y=0; y<pFrmDst->height; ++y)
     {
+
         memcpy(img.scanLine(y), pFrmDst->data[0]+y*pFrmDst->linesize[0], pFrmDst->linesize[0]);
     }
 
-    av_frame_free(&pFrmDst);
+//    av_frame_free(&pFrmDst);
 
     return img;
 }

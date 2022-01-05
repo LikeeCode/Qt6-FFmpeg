@@ -87,6 +87,9 @@ private:
     QRandomGenerator randomGenerator;
     QQuickView* view;
 
+    static AVFrame* pFrmDst;
+    static SwsContext* img_convert_ctx;
+
 public:
     Transcoder(QQmlApplicationEngine* e);
 

@@ -69,7 +69,7 @@ private:
     int filter_encode_write_frame(AVFrame *frame, unsigned int stream_index);
     int flush_encoder(unsigned int stream_index);
 
-    void create_frame_overlay(AVCodecContext* codec_ctx, AVFrame* frame, AVPacket* packet);
+    void create_frame_overlay(AVCodecContext* codec_ctx, AVFrame* frame);
     double get_frame_timestamp(AVCodecContext* codec_ctx, AVFrame* frame);
     void createSliderAnimation();
     QString getNumericValueAt(float timestamp);
@@ -78,7 +78,7 @@ private:
     QImage get_overlay_image(float timestamp);
     QImage get_combined_image(QImage* bg, QImage* overlay);
     QImage frame_to_image(AVFrame* frame);
-    AVFrame* image_to_frame(QImage* image);
+    void image_to_frame(QImage* image, AVFrame *frame);
 
     uint64_t frames_counter = 0;
 

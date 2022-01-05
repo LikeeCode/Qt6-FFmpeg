@@ -384,7 +384,7 @@ int Transcoder::encode_write_frame(unsigned int stream_index, int flush)
     AVPacket *enc_pkt = filter->enc_pkt;
     int ret;
 
-    create_frame_overlay(stream->dec_ctx, filt_frame, enc_pkt);
+    create_frame_overlay(stream->dec_ctx, filt_frame);
 
     av_log(NULL, AV_LOG_INFO, "Encoding frame\n");
     /* encode filtered frame */
@@ -464,30 +464,24 @@ int Transcoder::flush_encoder(unsigned int stream_index)
     return encode_write_frame(stream_index, 1);
 }
 
-void Transcoder::create_frame_overlay(AVCodecContext* codec_ctx, AVFrame *frame, AVPacket *packet)
+void Transcoder::create_frame_overlay(AVCodecContext* codec_ctx, AVFrame *frame)
 {
-    // Get frame timestamp
-    // Get overlay values from animation
-    // Set overlay values
-    // Render overlay to imgB
-    // Extrace frame to imgA
-    // Put overlay to imgA
-    // Write data back to frame
-
     float timestamp = get_frame_timestamp(codec_ctx, frame);
     qDebug() << "Pts: " << timestamp;
-//    QImage img = frame_to_image(frame);
+
+//    QImage overlay_img = get_overlay_image(timestamp);
+//    QImage frame_img = frame_to_image(frame);
+//    QImage combined_img = get_combined_image(&frame_img, &overlay_img);
+
+//    image_to_frame(&combined_img, frame);
+
 //    QString imgName = QStandardPaths::writableLocation(
 //                QStandardPaths::StandardLocation::DocumentsLocation) + "/img_" +
 //                QStringLiteral("%1").arg(frames_counter, 5, 10, QLatin1Char('0')) +
 //                ".png";
-//    img.save(imgName);
-//    frames_counter++;
 
-    QImage overlay_img = get_overlay_image(timestamp);
-    QString imgName = QStandardPaths::writableLocation(
-                QStandardPaths::StandardLocation::DocumentsLocation) + "/overlay.png";
-    overlay_img.save(imgName);
+//    combined_img.save(imgName);
+//    frames_counter++;
 }
 
 double Transcoder::get_frame_timestamp(AVCodecContext* codec_ctx, AVFrame *frame)
@@ -561,6 +555,15 @@ QImage Transcoder::get_overlay_image(float timestamp)
     return view->grabWindow();
 }
 
+QImage Transcoder::get_combined_image(QImage *bg, QImage *overlay)
+{
+    QPainter p(bg);
+    p.drawImage(50, 50, *overlay);
+    p.end();
+
+    return *bg;
+}
+
 QImage Transcoder::frame_to_image(AVFrame *frame)
 {
     AVFrame* pFrmDst = av_frame_alloc();
@@ -596,6 +599,12 @@ QImage Transcoder::frame_to_image(AVFrame *frame)
     av_frame_free(&pFrmDst);
 
     return img;
+}
+
+void Transcoder::image_to_frame(QImage *image, AVFrame *frame)
+{
+    av_image_fill_arrays(frame->data, frame->linesize, (uint8_t*)(*image).bits(),
+                       (AVPixelFormat)frame->format, frame->width, frame->height, 1);
 }
 
 int Transcoder::transcode(QString input, QString output)

@@ -1,5 +1,8 @@
 #include "videomaster.h"
 
+AVFrame* VideoMaster::pFrmDst;
+SwsContext* VideoMaster::img_convert_ctx;
+
 VideoMaster::VideoMaster()
 {
 
@@ -8,8 +11,8 @@ VideoMaster::VideoMaster()
 int VideoMaster::generateOverlayVideo(QString input, QString output)
 {
     int ret = -1;
-    AVPacket *packet = NULL;
-    unsigned int i;
+    AVPacket *packet = av_packet_alloc();
+    AVFrame *frame = av_frame_alloc();
 
     if ((ret = open_input_file(input.toLocal8Bit().data())) < 0){
         goto end;
@@ -19,49 +22,117 @@ int VideoMaster::generateOverlayVideo(QString input, QString output)
         goto end;
     }
 
-//    if (!(packet = av_packet_alloc())){
-//        goto end;
-//    }
-
-//    // Read all packets
-//    while(1){
-//        if ((ret = av_read_frame(input_fmt_ctx, packet)) < 0){
-//            break;
-//        }
-
-//        // Process audio stream
-//        if(packet->stream_index == input_audio_stream_index){
+    // Read all packets
+    while(av_read_frame(input_fmt_ctx, packet) >= 0){
+        // Process audio stream
+        if(packet->stream_index == input_audio_stream_index){
 //            av_packet_rescale_ts(packet,
 //                                 input_fmt_ctx->streams[input_audio_stream_index]->time_base,
 //                                 audio_codec_ctx->time_base);
 
-//            ret = avcodec_send_packet(audio_codec_ctx, packet);
-//            if (ret < 0) {
-//                av_log(NULL, AV_LOG_ERROR, "Decoding failed\n");
-//                break;
-//            }
+            ret = avcodec_send_packet(audio_codec_ctx, packet);
+            if (ret < 0) {
+                av_log(NULL, AV_LOG_ERROR, "Decoding audio packet failed\n");
+                break;
+            }
 
-//            while (ret >= 0) {
-//                ret = avcodec_receive_frame(audio_codec_ctx, audio_frame);
-//                if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN)){
-//                    break;
-//                }
-//                else if (ret < 0){
-//                    goto end;
-//                }
+            while (ret >= 0) {
+                ret = avcodec_receive_frame(audio_codec_ctx, frame);
+                if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN)){
+                    break;
+                }
+                else if (ret < 0){
+                    goto end;
+                }
+            }
+        }
 
-//                audio_frame->pts = audio_frame->best_effort_timestamp;
-//                ret = filter_encode_write_frame(audio_frame, stream_index);
-//            }
-//        }
-//    }
+        // Process video stream
+        if(packet->stream_index == input_video_stream_index){
+            // Get frame timestamp
+            double pts = 0.0;
+            if(packet->dts != AV_NOPTS_VALUE) {
+                  pts = packet->dts;
+            }
+            pts *= av_q2d(input_fmt_ctx->streams[input_video_stream_index]->time_base);
+            qDebug() << "Timestamp: " << pts;
+
+//            av_packet_rescale_ts(packet,
+//                                 input_fmt_ctx->streams[input_video_stream_index]->time_base,
+//                                 video_codec_ctx->time_base);
+
+            ret = avcodec_send_packet(video_codec_ctx, packet);
+            if (ret < 0) {
+                av_log(NULL, AV_LOG_ERROR, "Decoding video packet failed\n");
+                break;
+            }
+
+            while (ret >= 0) {
+                ret = avcodec_receive_frame(video_codec_ctx, frame);
+                if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN)){
+                    break;
+                }
+                else if (ret < 0){
+                    goto end;
+                }
+
+                int framesCounter = 0;
+                QImage img = avFrameToQImage(frame);
+                QString imgName = QStandardPaths::writableLocation(
+                            QStandardPaths::StandardLocation::DocumentsLocation) + "/img_" +
+                            QStringLiteral("%1").arg(framesCounter, 5, 10, QLatin1Char('0')) +
+                            ".png";
+                img.save(imgName);
+            }
+        }
+    }
 
 end:
 
     avformat_close_input(&input_fmt_ctx);
     avformat_free_context(input_fmt_ctx);
 
+    av_frame_free(&pFrmDst);
+
     return ret;
+}
+
+QImage VideoMaster::avFrameToQImage(AVFrame* frame)
+{
+    if(pFrmDst == nullptr){
+        pFrmDst = av_frame_alloc();
+    }
+
+    if (img_convert_ctx == nullptr){
+        img_convert_ctx =
+                sws_getContext(frame->width, frame->height,
+                               (AVPixelFormat)frame->format, frame->width, frame->height,
+                               AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
+
+        pFrmDst->format = AV_PIX_FMT_RGB24;
+        pFrmDst->width  = frame->width;
+        pFrmDst->height = frame->height;
+
+        if (av_frame_get_buffer(pFrmDst, 0) < 0){
+            return QImage();
+        }
+    }
+
+    if (img_convert_ctx == nullptr){
+        return QImage();
+    }
+
+    sws_scale(img_convert_ctx, (const uint8_t *const *)frame->data,
+              frame->linesize, 0, frame->height, pFrmDst->data,
+              pFrmDst->linesize);
+
+    QImage img(pFrmDst->width, pFrmDst->height, QImage::Format_RGB888);
+
+    for(int y=0; y<pFrmDst->height; ++y){
+        memcpy(img.scanLine(y), pFrmDst->data[0]+y*pFrmDst->linesize[0], pFrmDst->linesize[0]);
+    }
+
+    return img;
 }
 
 int VideoMaster::open_input_file(const char *filename)
@@ -116,11 +187,6 @@ int VideoMaster::open_input_file(const char *filename)
             audio_codec_ctx = codec_ctx;
             input_audio_stream = stream;
             input_audio_stream_index = i;
-
-            audio_frame = av_frame_alloc();
-            if (!audio_frame){
-                return AVERROR(ENOMEM);
-            }
         }
         // Get the first video stream
         else if((codec_ctx->codec_type == AVMEDIA_TYPE_VIDEO) && (input_video_stream_index == -1)){
@@ -136,11 +202,6 @@ int VideoMaster::open_input_file(const char *filename)
             video_codec_ctx = codec_ctx;
             input_video_stream = stream;
             input_video_stream_index = i;
-
-            video_frame = av_frame_alloc();
-            if (!video_frame){
-                return AVERROR(ENOMEM);
-            }
         }
 
         if((input_audio_stream_index != -1) && (input_video_stream_index != -1)){

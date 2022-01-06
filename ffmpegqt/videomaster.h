@@ -15,9 +15,12 @@ extern "C" {
 #include <libavutil/channel_layout.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
+#include <libswscale/swscale.h>
 }
 
 #include <QString>
+#include <QImage>
+#include <QStandardPaths>
 #include <QDebug>
 
 class VideoMaster
@@ -29,12 +32,6 @@ private:
     AVCodecContext *audio_codec_ctx = nullptr;
     AVCodecContext *video_codec_ctx = nullptr;
 
-    AVPacket* audio_packet;
-    AVPacket* video_packet;
-
-    AVFrame *audio_frame;
-    AVFrame *video_frame;
-
     AVStream *input_audio_stream = nullptr;
     AVStream *input_video_stream = nullptr;
 
@@ -43,6 +40,11 @@ private:
 
     int input_audio_stream_index = -1;
     int input_video_stream_index = -1;
+
+    QImage avFrameToQImage(AVFrame* frame);
+
+    static AVFrame *pFrmDst;
+    static SwsContext *img_convert_ctx;
 
 public:
     int open_input_file(const char *filename);

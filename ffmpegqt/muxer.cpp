@@ -897,30 +897,23 @@ QImage Muxer::avFrame2QImage(AVFrame *frame)
         pFrmDst = av_frame_alloc();
     }
 
-    if (img_convert_ctx == nullptr)
-    {
-
+    if (img_convert_ctx == nullptr){
         img_convert_ctx =
-          sws_getContext(frame->width, frame->height,
-                         (AVPixelFormat)frame->format, frame->width, frame->height,
-                         AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
+                sws_getContext(frame->width, frame->height,
+                               (AVPixelFormat)frame->format, frame->width, frame->height,
+                               AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
 
         pFrmDst->format = AV_PIX_FMT_RGB24;
         pFrmDst->width  = frame->width;
         pFrmDst->height = frame->height;
 
-        if (av_frame_get_buffer(pFrmDst, 0) < 0)
-        {
-
+        if (av_frame_get_buffer(pFrmDst, 0) < 0){
             return QImage();
         }
-
     }
 
-    if (img_convert_ctx == nullptr)
-    {
-
-            return QImage();
+    if (img_convert_ctx == nullptr){
+        return QImage();
     }
 
     sws_scale(img_convert_ctx, (const uint8_t *const *)frame->data,
@@ -928,13 +921,10 @@ QImage Muxer::avFrame2QImage(AVFrame *frame)
               pFrmDst->linesize);
 
     QImage img(pFrmDst->width, pFrmDst->height, QImage::Format_RGB888);
-    for(int y=0; y<pFrmDst->height; ++y)
-    {
 
+    for(int y=0; y<pFrmDst->height; ++y){
         memcpy(img.scanLine(y), pFrmDst->data[0]+y*pFrmDst->linesize[0], pFrmDst->linesize[0]);
     }
-
-//    av_frame_free(&pFrmDst);
 
     return img;
 }

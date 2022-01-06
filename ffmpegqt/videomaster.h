@@ -29,11 +29,11 @@ private:
     AVFormatContext *input_fmt_ctx = nullptr;
     AVFormatContext *output_fmt_ctx = nullptr;
 
-    AVCodecContext *audio_codec_ctx = nullptr;
-    AVCodecContext *video_codec_ctx = nullptr;
+    AVCodecContext *audio_decodec_ctx = nullptr;
+    AVCodecContext *video_decodec_ctx = nullptr;
 
-    AVStream *input_audio_stream = nullptr;
-    AVStream *input_video_stream = nullptr;
+    AVCodecContext *audio_encodec_ctx = nullptr;
+    AVCodecContext *video_encodec_ctx = nullptr;
 
     AVStream *output_audio_stream = nullptr;
     AVStream *output_video_stream = nullptr;
@@ -41,18 +41,21 @@ private:
     int input_audio_stream_index = -1;
     int input_video_stream_index = -1;
 
-    QImage avFrameToQImage(AVFrame* frame);
-
     static AVFrame *pFrmDst;
     static SwsContext *img_convert_ctx;
 
-public:
     int open_input_file(const char *filename);
     int open_output_file(const char *filename);
 
+    int write_frame(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx,
+                    AVStream *stream, AVFrame* frame, AVPacket *packet);
+
+public:
     VideoMaster();
 
     int generateOverlayVideo(QString input, QString output);
+
+    static QImage avFrameToQImage(AVFrame* frame);
 };
 
 #endif // VIDEOMASTER_H

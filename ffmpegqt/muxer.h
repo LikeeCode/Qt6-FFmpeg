@@ -58,7 +58,6 @@ private:
     uint8_t *buffer;                    // Store decoded picture buffer
     AVPacket *avPacket;                 // Package object
     AVFrame *avFrame;                   // Frame object
-    AVFormatContext *avFormatContext;   // Format object
     AVCodecContext *videoCodec;         // Video decoder
     AVCodecContext *audioCodec;         // Audio decoder
     SwsContext *swsContext;             // Process image data objects

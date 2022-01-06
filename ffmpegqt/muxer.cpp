@@ -25,7 +25,7 @@ int Muxer::write_frame(AVFormatContext *fmt_ctx, AVCodecContext *c,
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
             break;
         else if (ret < 0) {
-            qDebug() << "Error encoding a frame: ", ret;
+            qDebug() << "Error encoding a frame: " << ret;
             exit(1);
         }
 

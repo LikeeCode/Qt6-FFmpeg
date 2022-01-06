@@ -48,8 +48,6 @@ int VideoMaster::open_input_file(const char *filename)
 
         // Get the first audio stream
         if((codec_ctx->codec_type == AVMEDIA_TYPE_AUDIO) && (input_audio_stream_index == -1)){
-            codec_ctx->framerate = av_guess_frame_rate(input_fmt_ctx, stream, NULL);
-
             // Open decoder
             ret = avcodec_open2(codec_ctx, dec, NULL);
             if (ret < 0) {
@@ -98,26 +96,28 @@ int VideoMaster::open_output_file(const char *filename)
     }
 
     if(input_audio_stream_index != -1){
+        // Add audio stream
         output_audio_stream = avformat_new_stream(output_fmt_ctx, NULL);
         if (!output_audio_stream) {
             av_log(NULL, AV_LOG_ERROR, "Failed allocating output audio stream\n");
             return AVERROR_UNKNOWN;
         }
 
+        // Find encoder corresponding to codec_id
         audio_encoder = avcodec_find_encoder(audio_decodec_ctx->codec_id);
-
         if (!audio_encoder) {
             av_log(NULL, AV_LOG_FATAL, "Necessary audio encoder not found\n");
             return AVERROR_INVALIDDATA;
         }
 
+        // Allocate encoder context and assign its parameters
         audio_encodec_ctx = avcodec_alloc_context3(audio_encoder);
-
         audio_encodec_ctx->sample_rate = audio_decodec_ctx->sample_rate;
         audio_encodec_ctx->channel_layout = audio_decodec_ctx->channel_layout;
-        audio_encodec_ctx->channels = av_get_channel_layout_nb_channels(audio_encodec_ctx->channel_layout);
-        audio_encodec_ctx->sample_fmt = audio_encoder->sample_fmts[0];
-        audio_encodec_ctx->time_base = (AVRational){1, audio_decodec_ctx->sample_rate};
+        audio_encodec_ctx->channels = audio_decodec_ctx->channels;
+        audio_encodec_ctx->sample_fmt = audio_decodec_ctx->sample_fmt;
+        audio_encodec_ctx->bit_rate = audio_decodec_ctx->bit_rate;
+        audio_encodec_ctx->time_base = (AVRational){1, audio_encodec_ctx->sample_rate};
 
         if (output_fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
             audio_encodec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -138,28 +138,27 @@ int VideoMaster::open_output_file(const char *filename)
     }
 
     if(input_video_stream_index != -1){
+        // Add video stream
         output_video_stream = avformat_new_stream(output_fmt_ctx, NULL);
         if (!output_video_stream) {
             av_log(NULL, AV_LOG_ERROR, "Failed allocating output video stream\n");
             return AVERROR_UNKNOWN;
         }
 
+        // Find encoder corresponding to codec_id
         video_encoder = avcodec_find_encoder(video_decodec_ctx->codec_id);
-
         if (!video_encoder) {
             av_log(NULL, AV_LOG_FATAL, "Necessary video encoder not found\n");
             return AVERROR_INVALIDDATA;
         }
 
+        // Allocate encoder context and assign its parameters
         video_encodec_ctx = avcodec_alloc_context3(video_encoder);
         video_encodec_ctx->width = video_decodec_ctx->width;
         video_encodec_ctx->height = video_decodec_ctx->height;
         video_encodec_ctx->sample_aspect_ratio = video_decodec_ctx->sample_aspect_ratio;
-        if (video_encoder->pix_fmts)
-            video_encodec_ctx->pix_fmt = video_encoder->pix_fmts[0];
-        else
-            video_encodec_ctx->pix_fmt = video_decodec_ctx->pix_fmt;
-        video_encodec_ctx->time_base = video_decodec_ctx->time_base;
+        video_encodec_ctx->pix_fmt = video_encoder->pix_fmts ? video_encoder->pix_fmts[0] : video_decodec_ctx->pix_fmt;
+        video_encodec_ctx->time_base = av_inv_q(video_decodec_ctx->framerate);
 
         if (output_fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
             video_encodec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -204,7 +203,7 @@ int VideoMaster::write_frame(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx
 {
     int ret = -1;
 
-//    av_packet_unref(packet); // ???
+//    av_packet_unref(packet); ???
 
     // Send the frame to the encoder
     ret = avcodec_send_frame(codec_ctx, frame);
@@ -222,9 +221,17 @@ int VideoMaster::write_frame(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx
             exit(1);
         }
 
+        double pts = 0.0;
+        if(packet->dts != AV_NOPTS_VALUE) {
+              pts = packet->dts;
+        }
+        pts *= av_q2d(stream->time_base);
+
         // Rescale output packet timestamp values from codec to stream timebase
-        av_packet_rescale_ts(packet, codec_ctx->time_base, stream->time_base);
         packet->stream_index = stream->index;
+        av_packet_rescale_ts(packet, codec_ctx->time_base, stream->time_base);
+
+        qDebug() << "B> Timestamp: " << pts << ". After rescaling: " << packet->dts * av_q2d(stream->time_base);
 
         // Write the compressed frame to the media file
         ret = av_interleaved_write_frame(fmt_ctx, packet);
@@ -258,30 +265,30 @@ int VideoMaster::generateOverlayVideo(QString input, QString output)
     // Read all packets
     while(av_read_frame(input_fmt_ctx, packet) >= 0){
         // Process audio stream
-        if(packet->stream_index == input_audio_stream_index){
+//        if(packet->stream_index == input_audio_stream_index){
+//            ret = avcodec_send_packet(audio_decodec_ctx, packet);
+//            if (ret < 0) {
+//                av_log(NULL, AV_LOG_ERROR, "Decoding audio packet failed\n");
+//                break;
+//            }
+
 //            av_packet_rescale_ts(packet,
 //                                 input_fmt_ctx->streams[input_audio_stream_index]->time_base,
-//                                 audio_encodec_ctx->time_base);
+//                                 audio_decodec_ctx->time_base);
 
-            ret = avcodec_send_packet(audio_decodec_ctx, packet);
-            if (ret < 0) {
-                av_log(NULL, AV_LOG_ERROR, "Decoding audio packet failed\n");
-                break;
-            }
-
-            while (ret >= 0) {
-                ret = avcodec_receive_frame(audio_decodec_ctx, frame);
-                if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN)){
-                    break;
-                }
-                else if (ret < 0){
-                    goto end;
-                }
+//            while (ret >= 0) {
+//                ret = avcodec_receive_frame(audio_decodec_ctx, frame);
+//                if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN)){
+//                    break;
+//                }
+//                else if (ret < 0){
+//                    goto end;
+//                }
 
 //                write_frame(output_fmt_ctx, audio_encodec_ctx,
 //                            output_audio_stream, frame, packet);
-            }
-        }
+//            }
+//        }
 
         // Process video stream
         if(packet->stream_index == input_video_stream_index){
@@ -291,11 +298,11 @@ int VideoMaster::generateOverlayVideo(QString input, QString output)
                   pts = packet->dts;
             }
             pts *= av_q2d(input_fmt_ctx->streams[input_video_stream_index]->time_base);
-            qDebug() << "Timestamp: " << pts;
 
             av_packet_rescale_ts(packet,
                                  input_fmt_ctx->streams[input_video_stream_index]->time_base,
                                  video_decodec_ctx->time_base);
+            qDebug() << "A> Timestamp: " << pts << ". After rescaling: " << packet->dts * av_q2d(video_decodec_ctx->time_base);
 
             ret = avcodec_send_packet(video_decodec_ctx, packet);
             if (ret < 0) {
@@ -311,6 +318,8 @@ int VideoMaster::generateOverlayVideo(QString input, QString output)
                 else if (ret < 0){
                     goto end;
                 }
+
+                frame->pts = frame->best_effort_timestamp;
 
 //                int framesCounter = 0;
 //                QImage img = avFrameToQImage(frame);

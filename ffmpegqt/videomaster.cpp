@@ -3,9 +3,9 @@
 AVFrame* VideoMaster::pFrmDst;
 SwsContext* VideoMaster::img_convert_ctx;
 
-VideoMaster::VideoMaster()
+VideoMaster::VideoMaster(QQmlApplicationEngine *e) : engine(e)
 {
-
+    overlayGenerator = new OverlayGenerator(engine);
 }
 
 int VideoMaster::open_input_file(const char *filename)
@@ -248,6 +248,22 @@ int VideoMaster::write_frame(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx
     return ret == AVERROR_EOF ? 1 : 0;
 }
 
+void VideoMaster::generateFrameWithOverlay(AVFrame *frame, double timestamp)
+{
+    QImage frameImg = avFrameToQImage(frame);
+    QImage overlayImg = overlayGenerator->generateOverlayAt(timestamp);
+
+    QPainter painter(&frameImg);
+    painter.drawImage(50, 50, overlayImg);
+    painter.end();
+
+//    QString imgName = QStandardPaths::writableLocation(
+//                QStandardPaths::StandardLocation::DocumentsLocation) + "/overlay.png";
+//    frameImg.save(imgName);
+
+    QImageToAVFrame(frameImg, frame);
+}
+
 int VideoMaster::generateOverlayVideo(QString input, QString output)
 {
     int ret = -1;
@@ -329,6 +345,8 @@ int VideoMaster::generateOverlayVideo(QString input, QString output)
 //                            ".png";
 //                img.save(imgName);
 
+                generateFrameWithOverlay(frame, pts);
+
                 write_frame(output_fmt_ctx, video_encodec_ctx,
                             output_video_stream, frame, packet);
             }
@@ -389,4 +407,16 @@ QImage VideoMaster::avFrameToQImage(AVFrame* frame)
     }
 
     return img;
+}
+
+void VideoMaster::QImageToAVFrame(QImage image, AVFrame* frame){
+    if((frame->width == image.width()) && (frame->height == image.height())){
+        frame->width = image.width();
+        frame->height = image.height();
+        frame->format = AV_PIX_FMT_ARGB;
+        frame->linesize[0] = image.width();
+
+//        av_image_fill_arrays(frame->data, frame->linesize, (uint8_t*)image.bits(),
+//                           AV_PIX_FMT_ARGB, frame->width, frame->height, 1);
+    }
 }

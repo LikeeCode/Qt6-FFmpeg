@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 //    Transcoder transcoder(&engine);
 //    transcoder.transcode(input, output);
 
-    VideoMaster videoMaster;
+    VideoMaster videoMaster(&engine);
     videoMaster.generateOverlayVideo(input, output);
 
     return app.exec();

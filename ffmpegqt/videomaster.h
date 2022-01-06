@@ -16,12 +16,18 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
 #include <libswscale/swscale.h>
+#include <libavutil/imgutils.h>
 }
 
+#include <QObject>
 #include <QString>
 #include <QImage>
 #include <QStandardPaths>
+#include <QPainter>
+#include <QQmlApplicationEngine>
 #include <QDebug>
+
+#include "overlaygenerator.h"
 
 class VideoMaster
 {
@@ -50,12 +56,18 @@ private:
     int write_frame(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx,
                     AVStream *stream, AVFrame* frame, AVPacket *packet);
 
+    OverlayGenerator* overlayGenerator;
+    void generateFrameWithOverlay(AVFrame* frame, double timestamp);
+
+    QQmlApplicationEngine *engine;
+
 public:
-    VideoMaster();
+    VideoMaster(QQmlApplicationEngine *e);
 
     int generateOverlayVideo(QString input, QString output);
 
     static QImage avFrameToQImage(AVFrame* frame);
+    static void QImageToAVFrame(QImage image, AVFrame* frame);
 };
 
 #endif // VIDEOMASTER_H

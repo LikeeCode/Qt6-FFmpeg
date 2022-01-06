@@ -5,12 +5,71 @@ VideoMaster::VideoMaster()
 
 }
 
-int VideoMaster::openInputFile(QString filename)
+int VideoMaster::generateOverlayVideo(QString input, QString output)
+{
+    int ret = -1;
+    AVPacket *packet = NULL;
+    unsigned int i;
+
+    if ((ret = open_input_file(input.toLocal8Bit().data())) < 0){
+        goto end;
+    }
+
+    if ((ret = open_output_file(output.toLocal8Bit().data())) < 0){
+        goto end;
+    }
+
+//    if (!(packet = av_packet_alloc())){
+//        goto end;
+//    }
+
+//    // Read all packets
+//    while(1){
+//        if ((ret = av_read_frame(input_fmt_ctx, packet)) < 0){
+//            break;
+//        }
+
+//        // Process audio stream
+//        if(packet->stream_index == input_audio_stream_index){
+//            av_packet_rescale_ts(packet,
+//                                 input_fmt_ctx->streams[input_audio_stream_index]->time_base,
+//                                 audio_codec_ctx->time_base);
+
+//            ret = avcodec_send_packet(audio_codec_ctx, packet);
+//            if (ret < 0) {
+//                av_log(NULL, AV_LOG_ERROR, "Decoding failed\n");
+//                break;
+//            }
+
+//            while (ret >= 0) {
+//                ret = avcodec_receive_frame(audio_codec_ctx, audio_frame);
+//                if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN)){
+//                    break;
+//                }
+//                else if (ret < 0){
+//                    goto end;
+//                }
+
+//                audio_frame->pts = audio_frame->best_effort_timestamp;
+//                ret = filter_encode_write_frame(audio_frame, stream_index);
+//            }
+//        }
+//    }
+
+end:
+
+    avformat_close_input(&input_fmt_ctx);
+    avformat_free_context(input_fmt_ctx);
+
+    return ret;
+}
+
+int VideoMaster::open_input_file(const char *filename)
 {
     int ret = -1;
 
     input_fmt_ctx = NULL;
-    if ((ret = avformat_open_input(&input_fmt_ctx, filename.toLocal8Bit().data(), NULL, NULL)) < 0) {
+    if ((ret = avformat_open_input(&input_fmt_ctx, filename, NULL, NULL)) < 0) {
         av_log(NULL, AV_LOG_ERROR, "Cannot open input file\n");
         return ret;
     }
@@ -43,7 +102,8 @@ int VideoMaster::openInputFile(QString filename)
             return ret;
         }
 
-        if(codec_ctx->codec_type == AVMEDIA_TYPE_AUDIO){
+        // Get the first audio stream
+        if((codec_ctx->codec_type == AVMEDIA_TYPE_AUDIO) && (input_audio_stream_index == -1)){
             codec_ctx->framerate = av_guess_frame_rate(input_fmt_ctx, stream, NULL);
 
             // Open decoder
@@ -53,10 +113,17 @@ int VideoMaster::openInputFile(QString filename)
                 return ret;
             }
 
-            audio_decoding_ctx = codec_ctx;
+            audio_codec_ctx = codec_ctx;
+            input_audio_stream = stream;
             input_audio_stream_index = i;
+
+            audio_frame = av_frame_alloc();
+            if (!audio_frame){
+                return AVERROR(ENOMEM);
+            }
         }
-        else if(codec_ctx->codec_type == AVMEDIA_TYPE_VIDEO){
+        // Get the first video stream
+        else if((codec_ctx->codec_type == AVMEDIA_TYPE_VIDEO) && (input_video_stream_index == -1)){
             codec_ctx->framerate = av_guess_frame_rate(input_fmt_ctx, stream, NULL);
 
             // Open decoder
@@ -66,23 +133,33 @@ int VideoMaster::openInputFile(QString filename)
                 return ret;
             }
 
-            video_decoding_ctx = codec_ctx;
+            video_codec_ctx = codec_ctx;
+            input_video_stream = stream;
             input_video_stream_index = i;
+
+            video_frame = av_frame_alloc();
+            if (!video_frame){
+                return AVERROR(ENOMEM);
+            }
+        }
+
+        if((input_audio_stream_index != -1) && (input_video_stream_index != -1)){
+            break;
         }
     }
 
-    av_dump_format(input_fmt_ctx, 0, filename.toLocal8Bit().data(), 0);
+    av_dump_format(input_fmt_ctx, 0, filename, 0);
 
     return 0;
 }
 
-int VideoMaster::openOutputFile(QString filename)
+int VideoMaster::open_output_file(const char *filename)
 {
     int ret = -1;
     const AVCodec *audio_encoder, *video_encoder;
 
     output_fmt_ctx = NULL;
-    avformat_alloc_output_context2(&output_fmt_ctx, NULL, NULL, filename.toLocal8Bit().data());
+    avformat_alloc_output_context2(&output_fmt_ctx, NULL, NULL, filename);
     if (!output_fmt_ctx) {
         av_log(NULL, AV_LOG_ERROR, "Could not create output context\n");
         return AVERROR_UNKNOWN;
@@ -95,44 +172,26 @@ int VideoMaster::openOutputFile(QString filename)
             return AVERROR_UNKNOWN;
         }
 
-        audio_encoder = avcodec_find_encoder(audio_decoding_ctx->codec_id);
+        audio_encoder = avcodec_find_encoder(audio_codec_ctx->codec_id);
 
         if (!audio_encoder) {
             av_log(NULL, AV_LOG_FATAL, "Necessary audio encoder not found\n");
             return AVERROR_INVALIDDATA;
         }
 
-        audio_encoding_ctx = avcodec_alloc_context3(audio_encoder);
-        if (!audio_encoding_ctx) {
-            av_log(NULL, AV_LOG_FATAL, "Failed to allocate the audio encoder context\n");
-            return AVERROR(ENOMEM);
-        }
-
-        audio_encoding_ctx->sample_rate = audio_decoding_ctx->sample_rate;
-        audio_encoding_ctx->channel_layout = audio_decoding_ctx->channel_layout;
-        audio_encoding_ctx->channels = av_get_channel_layout_nb_channels(audio_encoding_ctx->channel_layout);
-
-        // Take first format from list of supported formats
-        audio_encoding_ctx->sample_fmt = audio_encoder->sample_fmts[0];
-        audio_encoding_ctx->time_base = (AVRational){1, audio_encoding_ctx->sample_rate};
-
-        if (output_fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER){
-            audio_encoding_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-        }
-
-        ret = avcodec_open2(audio_encoding_ctx, audio_encoder, NULL);
+        ret = avcodec_open2(audio_codec_ctx, audio_encoder, NULL);
         if (ret < 0) {
             av_log(NULL, AV_LOG_ERROR, "Cannot open audio encoder");
             return ret;
         }
 
-        ret = avcodec_parameters_from_context(output_audio_stream->codecpar, audio_encoding_ctx);
+        ret = avcodec_parameters_from_context(output_audio_stream->codecpar, audio_codec_ctx);
         if (ret < 0) {
             av_log(NULL, AV_LOG_ERROR, "Failed to copy encoder parameters to output audio stream");
             return ret;
         }
 
-        output_audio_stream->time_base = audio_encoding_ctx->time_base;
+        output_audio_stream->time_base = audio_codec_ctx->time_base;
     }
 
     if(input_video_stream_index != -1){
@@ -142,57 +201,34 @@ int VideoMaster::openOutputFile(QString filename)
             return AVERROR_UNKNOWN;
         }
 
-        video_encoder = avcodec_find_encoder(video_decoding_ctx->codec_id);
+        video_encoder = avcodec_find_encoder(video_codec_ctx->codec_id);
 
         if (!video_encoder) {
             av_log(NULL, AV_LOG_FATAL, "Necessary video encoder not found\n");
             return AVERROR_INVALIDDATA;
         }
 
-        video_encoding_ctx = avcodec_alloc_context3(video_encoder);
-        if (!video_encoding_ctx) {
-            av_log(NULL, AV_LOG_FATAL, "Failed to allocate the video encoder context\n");
-            return AVERROR(ENOMEM);
-        }
-
-        video_encoding_ctx->height = video_decoding_ctx->height;
-        video_encoding_ctx->width = video_decoding_ctx->width;
-        video_encoding_ctx->sample_aspect_ratio = video_decoding_ctx->sample_aspect_ratio;
-
-        // Take first format from list of supported formats
-        if (video_encoder->pix_fmts)
-            video_encoding_ctx->pix_fmt = video_encoder->pix_fmts[0];
-        else
-            video_encoding_ctx->pix_fmt = video_decoding_ctx->pix_fmt;
-
-        // Video time_base can be set to whatever is handy and supported by encoder
-        video_encoding_ctx->time_base = av_inv_q(video_decoding_ctx->framerate);
-
-        if (output_fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER){
-            video_encoding_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-        }
-
-        ret = avcodec_open2(video_encoding_ctx, video_encoder, NULL);
+        ret = avcodec_open2(video_codec_ctx, video_encoder, NULL);
         if (ret < 0) {
             av_log(NULL, AV_LOG_ERROR, "Cannot open video encoder");
             return ret;
         }
 
-        ret = avcodec_parameters_from_context(output_video_stream->codecpar, video_encoding_ctx);
+        ret = avcodec_parameters_from_context(output_video_stream->codecpar, video_codec_ctx);
         if (ret < 0) {
             av_log(NULL, AV_LOG_ERROR, "Failed to copy encoder parameters to output video stream");
             return ret;
         }
 
-        output_video_stream->time_base = video_encoding_ctx->time_base;
+        output_video_stream->time_base = video_codec_ctx->time_base;
     }
 
-    av_dump_format(output_fmt_ctx, 0, filename.toLocal8Bit().data(), 1);
+    av_dump_format(output_fmt_ctx, 0, filename, 1);
 
     if (!(output_fmt_ctx->oformat->flags & AVFMT_NOFILE)) {
-        ret = avio_open(&output_fmt_ctx->pb, filename.toLocal8Bit().data(), AVIO_FLAG_WRITE);
+        ret = avio_open(&output_fmt_ctx->pb, filename, AVIO_FLAG_WRITE);
         if (ret < 0) {
-            av_log(NULL, AV_LOG_ERROR, "Could not open output file '%s'", filename.toLocal8Bit().data());
+            av_log(NULL, AV_LOG_ERROR, "Could not open output file '%s'", filename);
             return ret;
         }
     }

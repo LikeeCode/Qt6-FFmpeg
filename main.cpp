@@ -61,8 +61,7 @@ int main(int argc, char *argv[])
 //    transcoder.transcode(input, output);
 
     VideoMaster videoMaster;
-    videoMaster.openInputFile(input);
-    videoMaster.openOutputFile(output);
+    videoMaster.generateOverlayVideo(input, output);
 
     return app.exec();
 }

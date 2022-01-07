@@ -1,7 +1,6 @@
 #include "overlaygenerator.h"
 
-AVFrame* OverlayGenerator::pFrmDst;
-SwsContext* OverlayGenerator::img_convert_ctx;
+SwsContext* OverlayGenerator::sws_ctx;
 
 OverlayGenerator::OverlayGenerator(QQmlApplicationEngine *e) : engine(e)
 {
@@ -10,8 +9,7 @@ OverlayGenerator::OverlayGenerator(QQmlApplicationEngine *e) : engine(e)
 
 OverlayGenerator::~OverlayGenerator()
 {
-    av_frame_free(&pFrmDst);
-    sws_freeContext(img_convert_ctx);
+    sws_freeContext(sws_ctx);
 }
 
 QString OverlayGenerator::getNumericValueAt(float timestamp)
@@ -58,10 +56,11 @@ void OverlayGenerator::createSliderAnimation()
     sliderAnimation.setKeyValueAt(1.0, 0.0);
 }
 
-void OverlayGenerator::generateOverlayAt(AVFrame *frame, double timestamp, int x, int y)
+void OverlayGenerator::generateOverlayAt(AVFrame *frame, AVCodecContext* codec_ctx,
+                                         double timestamp, int x, int y)
 {
     // Generate frame image
-    QImage frameImage = avFrameToQImage(frame);
+    QImage frameImage = avFrameToQImage(frame, codec_ctx);
 
     // Generate overlay image
     auto numericValue = getNumericValueAt(timestamp);
@@ -90,42 +89,37 @@ void OverlayGenerator::generateOverlayAt(AVFrame *frame, double timestamp, int x
     frameCounter++;
 }
 
-QImage OverlayGenerator::avFrameToQImage(AVFrame* frame)
+QImage OverlayGenerator::avFrameToQImage(AVFrame* frame, AVCodecContext* codec_ctx)
 {
-    if(pFrmDst == nullptr){
-        pFrmDst = av_frame_alloc();
-    }
+    if(!sws_ctx){
+        SwsContext* sws_ctx = sws_getContext(frame->width, frame->height, codec_ctx->pix_fmt,
+                                             frame->width, frame->height, AV_PIX_FMT_RGB0,
+                                             SWS_BICUBIC, NULL, NULL, NULL);
 
-    if (img_convert_ctx == nullptr){
-        img_convert_ctx =
-                sws_getContext(frame->width, frame->height,
-                               (AVPixelFormat)frame->format, frame->width, frame->height,
-                               AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
-
-        pFrmDst->format = AV_PIX_FMT_RGB24;
-        pFrmDst->width  = frame->width;
-        pFrmDst->height = frame->height;
-
-        if (av_frame_get_buffer(pFrmDst, 0) < 0){
+        if(!sws_ctx){
+            qDebug() << "Could not initialize SwsContext";
             return QImage();
         }
     }
 
-    if (img_convert_ctx == nullptr){
-        return QImage();
+    uint8_t* src_data = new uint8_t[frame->width * frame->height * 4];
+    uint8_t* dest_data[4] = { src_data, NULL, NULL, NULL };
+    int dest_linesize[4] = {frame->width * 4, 0, 0, 0};
+
+    sws_scale(sws_ctx, frame->data, frame->linesize,
+              0, frame->height, // start from horizontal zero to the height
+              dest_data, dest_linesize);
+
+    QImage image(frame->width, frame->height, QImage::Format_RGBA8888);
+    for(int y = 0; y < frame->height; ++y){
+        memcpy(image.scanLine(y),
+               dest_data[0] + y * dest_linesize[0],
+               dest_linesize[0]);
     }
 
-    sws_scale(img_convert_ctx, (const uint8_t *const *)frame->data,
-              frame->linesize, 0, frame->height, pFrmDst->data,
-              pFrmDst->linesize);
+    sws_freeContext(sws_ctx);
 
-    QImage img(pFrmDst->width, pFrmDst->height, QImage::Format_RGB888);
-
-    for(int y=0; y<pFrmDst->height; ++y){
-        memcpy(img.scanLine(y), pFrmDst->data[0]+y*pFrmDst->linesize[0], pFrmDst->linesize[0]);
-    }
-
-    return img;
+    return image;
 }
 
 void OverlayGenerator::QImageToAVFrame(QImage image, AVFrame* frame){

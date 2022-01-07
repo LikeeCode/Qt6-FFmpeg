@@ -56,10 +56,10 @@ public:
     OverlayGenerator(QQmlApplicationEngine *e);
     ~OverlayGenerator();
 
-    void generateOverlayAt(AVFrame *frame, double timestamp = 0.0,
-                           int x = 0, int y = 0);
+    void generateOverlayAt(AVFrame *frame, AVCodecContext* codec_ctx,
+                           double timestamp = 0.0, int x = 0, int y = 0);
 
-    static QImage avFrameToQImage(AVFrame* frame);
+    static QImage avFrameToQImage(AVFrame* frame, AVCodecContext* codec_ctx);
     static void QImageToAVFrame(QImage image, AVFrame* frame);
 };
 

@@ -27,20 +27,20 @@ int VideoMaster::open_input_file(const char *filename)
         const AVCodec *dec = avcodec_find_decoder(stream->codecpar->codec_id);
         if (!dec) {
             av_log(NULL, AV_LOG_ERROR, "Failed to find decoder for stream #%u\n", i);
-            return AVERROR_DECODER_NOT_FOUND;
+            continue;
         }
 
         codec_ctx = avcodec_alloc_context3(dec);
         if (!codec_ctx) {
             av_log(NULL, AV_LOG_ERROR, "Failed to allocate the decoder context for stream #%u\n", i);
-            return AVERROR(ENOMEM);
+            continue;
         }
 
         ret = avcodec_parameters_to_context(codec_ctx, stream->codecpar);
         if (ret < 0) {
             av_log(NULL, AV_LOG_ERROR, "Failed to copy decoder parameters to input decoder context "
                    "for stream #%u\n", i);
-            return ret;
+            continue;
         }
 
         // Get the first audio stream
@@ -318,7 +318,7 @@ int VideoMaster::generateOverlayVideo(QString input, QString output)
 
                 frame->pts = frame->best_effort_timestamp;
 
-                overlayGenerator->generateOverlayAt(frame,video_decodec_ctx, pts);
+//                overlayGenerator->generateOverlayAt(frame,video_decodec_ctx, pts);
 //                qDebug() << "Timestamp: " << pts;
 
                 write_frame(output_fmt_ctx, video_encodec_ctx,

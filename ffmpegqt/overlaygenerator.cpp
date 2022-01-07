@@ -9,7 +9,9 @@ OverlayGenerator::OverlayGenerator(QQmlApplicationEngine *e) : engine(e)
 
 OverlayGenerator::~OverlayGenerator()
 {
-    sws_freeContext(sws_ctx);
+    if(sws_ctx){
+        sws_freeContext(sws_ctx);
+    }
 }
 
 QString OverlayGenerator::getNumericValueAt(float timestamp)
@@ -116,8 +118,6 @@ QImage OverlayGenerator::avFrameToQImage(AVFrame* frame, AVCodecContext* codec_c
                dest_data[0] + y * dest_linesize[0],
                dest_linesize[0]);
     }
-
-    sws_freeContext(sws_ctx);
 
     return image;
 }

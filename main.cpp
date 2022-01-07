@@ -44,8 +44,8 @@ int main(int argc, char *argv[])
 
     QString input = QStandardPaths::writableLocation(
                 QStandardPaths::StandardLocation::DocumentsLocation) +
-//                "/DJI_0017.MP4";
-                "/VID_20220105_125833.mp4";
+                "/DJI_0017.MP4";
+//                "/VID_20220105_125833.mp4";
 
     int width, height;
     unsigned char *data;
@@ -54,8 +54,8 @@ int main(int argc, char *argv[])
 
     QString output = QStandardPaths::writableLocation(
                 QStandardPaths::StandardLocation::DocumentsLocation) +
-//                "/DJI_0017_TRANSCODED.MP4";
-                "/VID_20220105_125833_TRANSCODED.mp4";
+                "/DJI_0017_TRANSCODED.MP4";
+//                "/VID_20220105_125833_TRANSCODED.mp4";
 
 //    Transcoder transcoder(&engine);
 //    transcoder.transcode(input, output);

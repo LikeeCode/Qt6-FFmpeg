@@ -1,6 +1,6 @@
 #include "overlaygenerator.h"
 
-SwsContext* OverlayGenerator::sws_ctx;
+SwsContext* OverlayGenerator::sws_ctx = NULL;
 
 OverlayGenerator::OverlayGenerator(QQmlApplicationEngine *e) : engine(e)
 {
@@ -92,9 +92,9 @@ void OverlayGenerator::generateOverlayAt(AVFrame *frame, AVCodecContext* codec_c
 QImage OverlayGenerator::avFrameToQImage(AVFrame* frame, AVCodecContext* codec_ctx)
 {
     if(!sws_ctx){
-        SwsContext* sws_ctx = sws_getContext(frame->width, frame->height, codec_ctx->pix_fmt,
-                                             frame->width, frame->height, AV_PIX_FMT_RGB0,
-                                             SWS_BICUBIC, NULL, NULL, NULL);
+        sws_ctx = sws_getContext(frame->width, frame->height, codec_ctx->pix_fmt,
+                                 frame->width, frame->height, AV_PIX_FMT_RGB0,
+                                 SWS_BICUBIC, NULL, NULL, NULL);
 
         if(!sws_ctx){
             qDebug() << "Could not initialize SwsContext";

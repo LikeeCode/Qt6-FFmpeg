@@ -16,30 +16,24 @@ OverlayGenerator::~OverlayGenerator()
 
 QString OverlayGenerator::getNumericValueAt(float timestamp)
 {
-    static int lastTimestamp = 0;
-    static int lastValue = 0;
-
-    int currentTimestamp = static_cast<int>(timestamp / 1000);
-    if(currentTimestamp != lastTimestamp){
-        lastTimestamp = currentTimestamp;
-        lastValue = randomGenerator.bounded(99, 999);
+    int currentTimestamp = timestamp * 1000 / 1000;
+    if(currentTimestamp!= lastTimestampForNumeric){
+        lastTimestampForNumeric = currentTimestamp;
+        lastValueForNumeric = randomGenerator.bounded(99, 999);
     }
 
-    return QString::number(lastValue);
+    return QString::number(lastValueForNumeric);
 }
 
 float OverlayGenerator::getShapeValueAt(float timestamp)
 {
-    static int lastTimestamp = 0;
-    static float lastValue = 0.0f;
-
-    int currentTimestamp = static_cast<int>(timestamp / 300);
-    if(currentTimestamp != lastTimestamp){
-        lastTimestamp = currentTimestamp;
-        lastValue = randomGenerator.bounded(1.0);
+    int currentTimestamp = timestamp * 1000 / 300;
+    if(currentTimestamp != lastTimestampForShape){
+        lastTimestampForShape = currentTimestamp;
+        lastValueForShape = (float)randomGenerator.generateDouble();
     }
 
-    return lastValue;
+    return lastValueForShape;
 }
 
 float OverlayGenerator::getSliderValueAt(float timestamp)

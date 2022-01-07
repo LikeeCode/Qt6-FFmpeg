@@ -42,6 +42,10 @@ private:
     QQuickView* view;
     QRandomGenerator randomGenerator;
     QPropertyAnimation sliderAnimation;
+    int lastTimestampForNumeric = 0;
+    int lastTimestampForShape = 0;
+    int lastValueForNumeric = 0;
+    float lastValueForShape = 0.0f;
 
     static SwsContext *sws_ctx;
     int frameCounter = 0;

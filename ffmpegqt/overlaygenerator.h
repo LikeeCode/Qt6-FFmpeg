@@ -1,6 +1,24 @@
 #ifndef OVERLAYGENERATOR_H
 #define OVERLAYGENERATOR_H
 
+// Compatibility with C and C99 standards
+#ifndef INT64_C
+#define INT64_C
+#define UINT64_C
+#endif
+
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
+#include <libavutil/channel_layout.h>
+#include <libavutil/opt.h>
+#include <libavutil/pixdesc.h>
+#include <libswscale/swscale.h>
+#include <libavutil/imgutils.h>
+}
+
 #include <QObject>
 #include <QString>
 #include <QImage>
@@ -25,6 +43,10 @@ private:
     QRandomGenerator randomGenerator;
     QPropertyAnimation sliderAnimation;
 
+    static AVFrame *pFrmDst;
+    static SwsContext *img_convert_ctx;
+    int frameCounter = 0;
+
     QString getNumericValueAt(float timestamp);
     float getShapeValueAt(float timestamp);
     float getSliderValueAt(float timestamp);
@@ -32,8 +54,13 @@ private:
 
 public:
     OverlayGenerator(QQmlApplicationEngine *e);
+    ~OverlayGenerator();
 
-    QImage generateOverlayAt(double timestamp = 0.0);
+    void generateOverlayAt(AVFrame *frame, double timestamp = 0.0,
+                           int x = 0, int y = 0);
+
+    static QImage avFrameToQImage(AVFrame* frame);
+    static void QImageToAVFrame(QImage image, AVFrame* frame);
 };
 
 #endif // OVERLAYGENERATOR_H

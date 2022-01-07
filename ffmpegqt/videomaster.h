@@ -45,10 +45,7 @@ private:
     AVStream *output_video_stream = nullptr;
 
     int input_audio_stream_index = -1;
-    int input_video_stream_index = -1;
-
-    static AVFrame *pFrmDst;
-    static SwsContext *img_convert_ctx;
+    int input_video_stream_index = -1;    
 
     int open_input_file(const char *filename);
     int open_output_file(const char *filename);
@@ -57,8 +54,6 @@ private:
                     AVStream *stream, AVFrame* frame, AVPacket *packet);
 
     OverlayGenerator* overlayGenerator;
-    void generateFrameWithOverlay(AVFrame* frame, double timestamp);
-
     QQmlApplicationEngine *engine;
 
 public:

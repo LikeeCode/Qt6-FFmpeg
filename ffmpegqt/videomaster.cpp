@@ -1,8 +1,5 @@
 #include "videomaster.h"
 
-AVFrame* VideoMaster::pFrmDst;
-SwsContext* VideoMaster::img_convert_ctx;
-
 VideoMaster::VideoMaster(QQmlApplicationEngine *e) : engine(e)
 {
     overlayGenerator = new OverlayGenerator(engine);
@@ -248,22 +245,6 @@ int VideoMaster::write_frame(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx
     return ret == AVERROR_EOF ? 1 : 0;
 }
 
-void VideoMaster::generateFrameWithOverlay(AVFrame *frame, double timestamp)
-{
-    QImage frameImg = avFrameToQImage(frame);
-    QImage overlayImg = overlayGenerator->generateOverlayAt(timestamp);
-
-    QPainter painter(&frameImg);
-    painter.drawImage(50, 50, overlayImg);
-    painter.end();
-
-//    QString imgName = QStandardPaths::writableLocation(
-//                QStandardPaths::StandardLocation::DocumentsLocation) + "/overlay.png";
-//    frameImg.save(imgName);
-
-    QImageToAVFrame(frameImg, frame);
-}
-
 int VideoMaster::generateOverlayVideo(QString input, QString output)
 {
     int ret = -1;
@@ -337,15 +318,8 @@ int VideoMaster::generateOverlayVideo(QString input, QString output)
 
                 frame->pts = frame->best_effort_timestamp;
 
-//                int framesCounter = 0;
-//                QImage img = avFrameToQImage(frame);
-//                QString imgName = QStandardPaths::writableLocation(
-//                            QStandardPaths::StandardLocation::DocumentsLocation) + "/img_" +
-//                            QStringLiteral("%1").arg(framesCounter, 5, 10, QLatin1Char('0')) +
-//                            ".png";
-//                img.save(imgName);
-
-                generateFrameWithOverlay(frame, pts);
+//                overlayGenerator->generateOverlayAt(frame, pts);
+//                qDebug() << "Timestamp: " << pts;
 
                 write_frame(output_fmt_ctx, video_encodec_ctx,
                             output_video_stream, frame, packet);
@@ -365,58 +339,5 @@ end:
     avformat_close_input(&output_fmt_ctx);
     avformat_free_context(output_fmt_ctx);
 
-    av_frame_free(&pFrmDst);
-    sws_freeContext(img_convert_ctx);
-
     return ret;
-}
-
-QImage VideoMaster::avFrameToQImage(AVFrame* frame)
-{
-    if(pFrmDst == nullptr){
-        pFrmDst = av_frame_alloc();
-    }
-
-    if (img_convert_ctx == nullptr){
-        img_convert_ctx =
-                sws_getContext(frame->width, frame->height,
-                               (AVPixelFormat)frame->format, frame->width, frame->height,
-                               AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
-
-        pFrmDst->format = AV_PIX_FMT_RGB24;
-        pFrmDst->width  = frame->width;
-        pFrmDst->height = frame->height;
-
-        if (av_frame_get_buffer(pFrmDst, 0) < 0){
-            return QImage();
-        }
-    }
-
-    if (img_convert_ctx == nullptr){
-        return QImage();
-    }
-
-    sws_scale(img_convert_ctx, (const uint8_t *const *)frame->data,
-              frame->linesize, 0, frame->height, pFrmDst->data,
-              pFrmDst->linesize);
-
-    QImage img(pFrmDst->width, pFrmDst->height, QImage::Format_RGB888);
-
-    for(int y=0; y<pFrmDst->height; ++y){
-        memcpy(img.scanLine(y), pFrmDst->data[0]+y*pFrmDst->linesize[0], pFrmDst->linesize[0]);
-    }
-
-    return img;
-}
-
-void VideoMaster::QImageToAVFrame(QImage image, AVFrame* frame){
-    if((frame->width == image.width()) && (frame->height == image.height())){
-        frame->width = image.width();
-        frame->height = image.height();
-        frame->format = AV_PIX_FMT_ARGB;
-        frame->linesize[0] = image.width();
-
-//        av_image_fill_arrays(frame->data, frame->linesize, (uint8_t*)image.bits(),
-//                           AV_PIX_FMT_ARGB, frame->width, frame->height, 1);
-    }
 }

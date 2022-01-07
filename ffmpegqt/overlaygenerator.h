@@ -43,8 +43,7 @@ private:
     QRandomGenerator randomGenerator;
     QPropertyAnimation sliderAnimation;
 
-    static AVFrame *pFrmDst;
-    static SwsContext *img_convert_ctx;
+    static SwsContext *sws_ctx;
     int frameCounter = 0;
 
     QString getNumericValueAt(float timestamp);

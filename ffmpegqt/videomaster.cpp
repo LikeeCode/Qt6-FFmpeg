@@ -318,7 +318,7 @@ int VideoMaster::generateOverlayVideo(QString input, QString output)
 
                 frame->pts = frame->best_effort_timestamp;
 
-//                overlayGenerator->generateOverlayAt(frame,video_decodec_ctx, pts);
+                overlayGenerator->generateOverlayAt(frame,video_decodec_ctx, pts);
 //                qDebug() << "Timestamp: " << pts;
 
                 write_frame(output_fmt_ctx, video_encodec_ctx,

@@ -83,12 +83,14 @@ void OverlayGenerator::generateOverlayAt(AVFrame *frame, AVCodecContext* codec_c
     painter.drawImage(x, y, overlayImage);
     painter.end();
 
-    QString imgName = QStandardPaths::writableLocation(
-                QStandardPaths::StandardLocation::DocumentsLocation) + "/img_" +
-                QStringLiteral("%1").arg(frameCounter, 5, 10, QLatin1Char('0')) +
-                ".png";
-    frameImage.save(imgName);
-    frameCounter++;
+//    QString imgName = QStandardPaths::writableLocation(
+//                QStandardPaths::StandardLocation::DocumentsLocation) + "/img_" +
+//                QStringLiteral("%1").arg(frameCounter, 5, 10, QLatin1Char('0')) +
+//                ".png";
+//    frameImage.save(imgName);
+//    frameCounter++;
+
+    QImageToAVFrame(frameImage, frame);
 }
 
 QImage OverlayGenerator::avFrameToQImage(AVFrame* frame, AVCodecContext* codec_ctx)
@@ -122,14 +124,33 @@ QImage OverlayGenerator::avFrameToQImage(AVFrame* frame, AVCodecContext* codec_c
     return image;
 }
 
-void OverlayGenerator::QImageToAVFrame(QImage image, AVFrame* frame){
-    if((frame->width == image.width()) && (frame->height == image.height())){
-//        frame->width = image.width();
-//        frame->height = image.height();
-//        frame->format = AV_PIX_FMT_ARGB;
-//        frame->linesize[0] = image.width();
+void OverlayGenerator::QImageToAVFrame(QImage image, AVFrame* frame)
+{
+    QRgb rgb;
+    int r, g, b;
+    int dy, du, dv;
 
-        av_image_fill_arrays(frame->data, frame->linesize, (uint8_t*)image.bits(),
-                           AV_PIX_FMT_ARGB, frame->width, frame->height, 1);
+    for (int h = 0; h < image.height(); h++)
+    {
+        for (int w = 0; w < image.width(); w++)
+        {
+            rgb = image.pixel(w, h);
+
+            r = qRed(rgb);
+            g = qGreen(rgb);
+            b = qBlue(rgb);
+
+            dy = ((66*r + 129*g + 25*b) >> 8) + 16;
+            du = ((-38*r + -74*g + 112*b) >> 8) + 128;
+            dv = ((112*r + -94*g + -18*b) >> 8) + 128;
+
+            frame->data[0][h * frame->linesize[0] + w] = (uchar)dy;
+
+            if(h % 2 == 0 && w % 2 == 0)
+            {
+                frame->data[1][h/2 * (frame->linesize[1]) + w/2] = (uchar)du;
+                frame->data[2][h/2 * (frame->linesize[2]) + w/2] = (uchar)dv;
+            }
+        }
     }
 }

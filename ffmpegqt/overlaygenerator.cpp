@@ -55,11 +55,6 @@ void OverlayGenerator::createSliderAnimation()
 void OverlayGenerator::generateOverlayAt(AVFrame *frame, AVCodecContext* codec_ctx,
                                          double timestamp, int x, int y)
 {
-    // Generate frame image
-//    QImage frameImage = avFrameToQImage(frame, codec_ctx);
-//    QImage frameImage(frame->width, frame->height, QImage::Format_RGBA8888);
-//    frameImage.fill(QColorConstants::Transparent);
-
     // Generate overlay image
     auto numericValue = getNumericValueAt(timestamp);
     auto shapeValue = getShapeValueAt(timestamp);
@@ -80,13 +75,6 @@ void OverlayGenerator::generateOverlayAt(AVFrame *frame, AVCodecContext* codec_c
     QPainter painter(&frameImage);
     painter.drawImage(0, 0, overlayImage);
     painter.end();
-
-//    QString imgName = QStandardPaths::writableLocation(
-//                QStandardPaths::StandardLocation::DocumentsLocation) + "/img_" +
-//                QStringLiteral("%1").arg(frameCounter, 5, 10, QLatin1Char('0')) +
-//                ".png";
-//    frameImage.save(imgName);
-//    frameCounter++;
 
     QImageToAVFrame(frameImage, frame, x, y);
 }

@@ -1,8 +1,12 @@
 #include "videomaster.h"
 
-VideoMaster::VideoMaster(QQmlApplicationEngine *e) : engine(e)
+VideoMaster::VideoMaster()
 {
-    overlayGenerator = new OverlayGenerator(engine);
+}
+
+void VideoMaster::setOverlayGenerator(OverlayGenerator *generator)
+{
+    overlayGenerator = generator;
 }
 
 int VideoMaster::open_input_file(const char *filename)
@@ -245,7 +249,7 @@ int VideoMaster::write_frame(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx
     return ret == AVERROR_EOF ? 1 : 0;
 }
 
-int VideoMaster::generateOverlayVideo(QString input, QString output)
+int VideoMaster::generateOverlay(QString input, QString output)
 {
     int ret = -1;
     AVPacket *packet = av_packet_alloc();
@@ -318,8 +322,7 @@ int VideoMaster::generateOverlayVideo(QString input, QString output)
 
                 frame->pts = frame->best_effort_timestamp;
 
-                overlayGenerator->generateOverlayAt(frame,video_decodec_ctx,
-                                                    pts, 50, 50);
+                overlayGenerator->generateOverlayAt(frame,video_decodec_ctx, pts);
 //                qDebug() << "Timestamp: " << pts;
 
                 write_frame(output_fmt_ctx, video_encodec_ctx,
@@ -341,4 +344,38 @@ end:
     avformat_free_context(output_fmt_ctx);
 
     return ret;
+}
+
+void VideoMaster::getThumbnails(QString folder)
+{
+    qDebug() << "FFmpeg::getThumbnails(" << folder << ")";
+}
+
+void VideoMaster::setOverlayX(int x)
+{
+    if(overlayGenerator){
+        overlayGenerator->setOverlayX(x);
+    }
+}
+
+void VideoMaster::setOverlayY(int y)
+{
+    if(overlayGenerator){
+        overlayGenerator->setOverlayY(y);
+    }
+}
+
+void VideoMaster::generateOverlay(QString folder, QStringList files)
+{
+    qDebug() << "FFmpeg::generateOverlay(" << folder << ")";
+    for(auto& file : files){
+        qDebug() << file;
+    }
+
+    emit generationFinished("FOLDER");
+}
+
+void VideoMaster::cancel()
+{
+    qDebug() << "FFmpeg::cancel()";
 }

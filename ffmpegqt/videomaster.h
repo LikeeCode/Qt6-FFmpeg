@@ -29,8 +29,10 @@ extern "C" {
 
 #include "overlaygenerator.h"
 
-class VideoMaster
+class VideoMaster : public QObject
 {
+    Q_OBJECT
+
 private:
     AVFormatContext *input_fmt_ctx = nullptr;
     AVFormatContext *output_fmt_ctx = nullptr;
@@ -53,16 +55,27 @@ private:
     int write_frame(AVFormatContext *fmt_ctx, AVCodecContext *codec_ctx,
                     AVStream *stream, AVFrame* frame, AVPacket *packet);
 
-    OverlayGenerator* overlayGenerator;
-    QQmlApplicationEngine *engine;
+    OverlayGenerator* overlayGenerator = nullptr;
 
 public:
-    VideoMaster(QQmlApplicationEngine *e);
+    VideoMaster();
 
-    int generateOverlayVideo(QString input, QString output);
+    void setOverlayGenerator(OverlayGenerator* generator);
+    int generateOverlay(QString input, QString output);
 
     static QImage avFrameToQImage(AVFrame* frame);
     static void QImageToAVFrame(QImage image, AVFrame* frame);
+
+signals:
+    void progressChanged(int progress);
+    void generationFinished(QString resultFolder);
+
+public slots:
+    void getThumbnails(QString folder);
+    void setOverlayX(int x);
+    void setOverlayY(int y);
+    void generateOverlay(QString folder, QStringList files);
+    void cancel();
 };
 
 #endif // VIDEOMASTER_H

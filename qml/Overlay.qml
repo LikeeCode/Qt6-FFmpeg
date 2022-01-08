@@ -29,7 +29,7 @@ Rectangle {
 
     Timer {
         id: numericValueTimer
-        interval: 300; running: root.animationRunning; repeat: true
+        interval: 1000; running: root.animationRunning; repeat: true
         onTriggered: {
             js.generateNumericValue();
         }
@@ -37,7 +37,7 @@ Rectangle {
 
     Timer {
         id: gradientTimer
-        interval: 1000; running: root.animationRunning; repeat: true
+        interval: 300; running: root.animationRunning; repeat: true
         onTriggered: {
             js.generateGradientPosition();
         }

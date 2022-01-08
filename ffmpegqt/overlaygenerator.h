@@ -44,23 +44,29 @@ private:
     QPropertyAnimation sliderAnimation;
     int lastTimestampForNumeric = 0;
     int lastTimestampForShape = 0;
-    int lastValueForNumeric = 0;
-    float lastValueForShape = 0.0f;
 
+    int overlayX = 0;
+    int overlayY = 0;
     static SwsContext *sws_ctx;
     int frameCounter = 0;
 
-    QString getNumericValueAt(float timestamp);
-    float getShapeValueAt(float timestamp);
-    float getSliderValueAt(float timestamp);
+    void setNumericValueFor(float timestamp);
+    void setShapeValueFor(float timestamp);
+    void setSliderValueFor(float timestamp);
     void createSliderAnimation();
 
 public:
+    QString numericValue = "0";
+    float shapeValue = 0.0f;
+    float sliderValue = 0.0f;
+
     OverlayGenerator(QQmlApplicationEngine *e);
     ~OverlayGenerator();
 
+    void setOverlayX(int x);
+    void setOverlayY(int y);
     void generateOverlayAt(AVFrame *frame, AVCodecContext* codec_ctx,
-                           double timestamp = 0.0, int x = 0, int y = 0);
+                           double timestamp = 0.0);
 
     static QImage avFrameToQImage(AVFrame* frame, AVCodecContext* codec_ctx);
     static void QImageToAVFrame(QImage image, AVFrame* frame,

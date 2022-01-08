@@ -14,34 +14,43 @@ OverlayGenerator::~OverlayGenerator()
     }
 }
 
-QString OverlayGenerator::getNumericValueAt(float timestamp)
+void OverlayGenerator::setOverlayX(int x)
+{
+    overlayX = x;
+}
+
+void OverlayGenerator::setOverlayY(int y)
+{
+    overlayY = y;
+}
+
+void OverlayGenerator::setNumericValueFor(float timestamp)
 {
     int currentTimestamp = timestamp * 1000 / 1000;
     if(currentTimestamp!= lastTimestampForNumeric){
         lastTimestampForNumeric = currentTimestamp;
-        lastValueForNumeric = randomGenerator.bounded(99, 999);
+        numericValue = QString::number(randomGenerator.bounded(99, 999));
+        engine->rootContext()->setContextProperty("OVERLAY_NUMERIC", numericValue);
     }
-
-    return QString::number(lastValueForNumeric);
 }
 
-float OverlayGenerator::getShapeValueAt(float timestamp)
+void OverlayGenerator::setShapeValueFor(float timestamp)
 {
     int currentTimestamp = timestamp * 1000 / 300;
     if(currentTimestamp != lastTimestampForShape){
         lastTimestampForShape = currentTimestamp;
-        lastValueForShape = (float)randomGenerator.generateDouble();
+        shapeValue = (float)randomGenerator.generateDouble();
+        engine->rootContext()->setContextProperty("OVERLAY_SHAPE", shapeValue);
     }
-
-    return lastValueForShape;
 }
 
-float OverlayGenerator::getSliderValueAt(float timestamp)
+void OverlayGenerator::setSliderValueFor(float timestamp)
 {
     int timestampInMs = timestamp * 1000;
     int currentTime = timestampInMs % SLIDER_ANIM_DUR;
     sliderAnimation.setCurrentTime(currentTime);
-    return sliderAnimation.currentValue().toFloat();
+    sliderValue = sliderAnimation.currentValue().toFloat();
+    engine->rootContext()->setContextProperty("OVERLAY_SLIDER", sliderValue);
 }
 
 void OverlayGenerator::createSliderAnimation()
@@ -53,19 +62,16 @@ void OverlayGenerator::createSliderAnimation()
 }
 
 void OverlayGenerator::generateOverlayAt(AVFrame *frame, AVCodecContext* codec_ctx,
-                                         double timestamp, int x, int y)
+                                         double timestamp)
 {
     // Generate overlay image
-    auto numericValue = getNumericValueAt(timestamp);
-    auto shapeValue = getShapeValueAt(timestamp);
-    auto sliderValue = getSliderValueAt(timestamp);
+    setNumericValueFor(timestamp);
+    setShapeValueFor(timestamp);
+    setSliderValueFor(timestamp);
 
     view = new QQuickView(engine, nullptr);
     view->setSource(QUrl(QStringLiteral("qrc:/qml/Overlay.qml")));
     view->setColor(QColorConstants::Transparent);
-    view->rootContext()->setContextProperty("OVERLAY_NUMERIC", numericValue);
-    view->rootContext()->setContextProperty("OVERLAY_SHAPE", shapeValue);
-    view->rootContext()->setContextProperty("OVERLAY_SLIDER", sliderValue);
 
     QImage overlayImage = view->grabWindow();
 
@@ -73,10 +79,10 @@ void OverlayGenerator::generateOverlayAt(AVFrame *frame, AVCodecContext* codec_c
     QImage frameImage(view->width(), view->height(), QImage::Format_RGBA8888);
     frameImage.fill(QColorConstants::Transparent);
     QPainter painter(&frameImage);
-    painter.drawImage(0, 0, overlayImage);
+    painter.drawImage(overlayX, overlayY, overlayImage);
     painter.end();
 
-    QImageToAVFrame(frameImage, frame, x, y);
+    QImageToAVFrame(frameImage, frame, overlayX, overlayY);
 }
 
 QImage OverlayGenerator::avFrameToQImage(AVFrame* frame, AVCodecContext* codec_ctx)

@@ -18,9 +18,17 @@ int main(int argc, char *argv[])
 
     QQmlApplicationEngine engine;
 
-    engine.rootContext()->setContextProperty("OVERLAY_NUMERIC", "");
-    engine.rootContext()->setContextProperty("OVERLAY_SHAPE", 0.0);
-    engine.rootContext()->setContextProperty("OVERLAY_SLIDER", 0.0);
+    // Overlay
+    OverlayGenerator overlayGenerator(&engine);
+    engine.rootContext()->setContextProperty("OVERLAY_NUMERIC", overlayGenerator.numericValue);
+    engine.rootContext()->setContextProperty("OVERLAY_SHAPE", overlayGenerator.shapeValue);
+    engine.rootContext()->setContextProperty("OVERLAY_SLIDER", overlayGenerator.sliderValue);
+
+    // FFmpeg
+    VideoMaster videoMaster;
+    videoMaster.setOverlayGenerator(&overlayGenerator);
+    qmlRegisterType<VideoMaster>("VideoMaster", 1, 0, "VideoMaster");
+    engine.rootContext()->setContextProperty("videoMaster", &videoMaster);
 
     const QUrl url(QStringLiteral("qrc:/qml/main.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
@@ -60,8 +68,7 @@ int main(int argc, char *argv[])
 //    Transcoder transcoder(&engine);
 //    transcoder.transcode(input, output);
 
-    VideoMaster videoMaster(&engine);
-    videoMaster.generateOverlayVideo(input, output);
+    videoMaster.generateOverlay(input, output);
 
     return app.exec();
 }

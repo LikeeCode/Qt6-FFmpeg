@@ -4,6 +4,7 @@
 #include <QStandardPaths>
 
 #include "ffmpegqt/muxer.h"
+#include "ffmpegqt/remuxer.h"
 #include "ffmpegqt/transcoder.h"
 #include "ffmpegqt/videomaster.h"
 
@@ -38,24 +39,27 @@ int main(int argc, char *argv[])
     engine.load(url);
 
     // Muxer
-    QString fileName = QStandardPaths::writableLocation(
-                QStandardPaths::StandardLocation::DocumentsLocation) +
-                "/muxer.mp4";
-    QMap<QString, QString> args{{"filename", fileName},
-                                {"-c:v", "libx264"}};
-    Muxer muxer;
-    muxer.mux(args);
+//    QString fileName = QStandardPaths::writableLocation(
+//                QStandardPaths::StandardLocation::DocumentsLocation) +
+//                "/muxer.mp4";
+//    QMap<QString, QString> args{{"filename", fileName},
+//                                {"-c:v", "libx264"}};
+//    Muxer muxer;
+//    muxer.mux(args);
 
     // Transcoder
-//    QString input = QStandardPaths::writableLocation(
-//                QStandardPaths::StandardLocation::DocumentsLocation) +
-////                "/DJI_0017.MP4";
+    QString input = QStandardPaths::writableLocation(
+                QStandardPaths::StandardLocation::DocumentsLocation) +
+                "/DJI_0017.MP4";
 //                "/VID_20220105_125833.mp4";
 
-//    QString output = QStandardPaths::writableLocation(
-//                QStandardPaths::StandardLocation::DocumentsLocation) +
-////                "/DJI_0017_TRANSCODED.MP4";
-//                "/VID_20220105_125833_TRANSCODED.mp4";
+    QString output = QStandardPaths::writableLocation(
+                QStandardPaths::StandardLocation::DocumentsLocation) +
+                "/DJI_0017_EDITED.MP4";
+//                "/VID_20220105_125833_EDITED.mp4";
+
+    Remuxer remuxer;
+    remuxer.remux(input, output);
 
 //    Transcoder transcoder;
 //    transcoder.transcode(input, output);

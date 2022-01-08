@@ -12,6 +12,7 @@ RESOURCES += qml.qrc
 SOURCES += \
     ffmpegqt/muxer.cpp \
     ffmpegqt/overlaygenerator.cpp \
+    ffmpegqt/remuxer.cpp \
     ffmpegqt/transcoder.cpp \
     ffmpegqt/videomaster.cpp \
     main.cpp
@@ -19,6 +20,7 @@ SOURCES += \
 HEADERS += \
     ffmpegqt/muxer.h \
     ffmpegqt/overlaygenerator.h \
+    ffmpegqt/remuxer.h \
     ffmpegqt/transcoder.h \
     ffmpegqt/videomaster.h
 

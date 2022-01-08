@@ -37,36 +37,30 @@ int main(int argc, char *argv[])
     }, Qt::QueuedConnection);
     engine.load(url);
 
-//    QString fileName = QStandardPaths::writableLocation(
-//                QStandardPaths::StandardLocation::DocumentsLocation) +
-//                "/muxing.mp4";
-
-//    FFmpegQt ffmpegQt;
-//    ffmpegQt.createVideo(fileName, "libx264");
-
-//    QMap<QString, QString> args{{"filename", fileName},
-//                                {"-c:v", "libx264"}};
+    // Muxer
+    QString fileName = QStandardPaths::writableLocation(
+                QStandardPaths::StandardLocation::DocumentsLocation) +
+                "/muxer.mp4";
+    QMap<QString, QString> args{{"filename", fileName},
+                                {"-c:v", "libx264"}};
     Muxer muxer;
-//    muxer.createVideo(args);
+    muxer.mux(args);
 
-    QString input = QStandardPaths::writableLocation(
-                QStandardPaths::StandardLocation::DocumentsLocation) +
-//                "/DJI_0017.MP4";
-                "/VID_20220105_125833.mp4";
+    // Transcoder
+//    QString input = QStandardPaths::writableLocation(
+//                QStandardPaths::StandardLocation::DocumentsLocation) +
+////                "/DJI_0017.MP4";
+//                "/VID_20220105_125833.mp4";
 
-    int width, height;
-    unsigned char *data;
-//    muxer.load_frame(input.toLocal8Bit().data(), &width, &height, &data);
-//    muxer.renderQml(&engine);
+//    QString output = QStandardPaths::writableLocation(
+//                QStandardPaths::StandardLocation::DocumentsLocation) +
+////                "/DJI_0017_TRANSCODED.MP4";
+//                "/VID_20220105_125833_TRANSCODED.mp4";
 
-    QString output = QStandardPaths::writableLocation(
-                QStandardPaths::StandardLocation::DocumentsLocation) +
-//                "/DJI_0017_TRANSCODED.MP4";
-                "/VID_20220105_125833_TRANSCODED.mp4";
+//    Transcoder transcoder;
+//    transcoder.transcode(input, output);
 
-    Transcoder transcoder;
-    transcoder.transcode(input, output);
-
+    // Video master
 //    videoMaster.generateOverlay(input, output);
 
     return app.exec();

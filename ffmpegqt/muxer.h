@@ -29,26 +29,13 @@ extern "C" {
 #endif
 }
 
-#include <QImage>
-#include <QDebug>
-#include <QStandardPaths>
-#include <QQuickView>
-#include <QQuickItem>
-#include <QQuickWindow>
-#include <QQmlProperty>
-#include <QObject>
-#include <QQmlApplicationEngine>
-#include <QQmlContext>
-#include <QPainter>
-#include <QRandomGenerator>
-#include <QPropertyAnimation>
+#define STREAM_DURATION   10.0
+#define STREAM_FRAME_RATE 25 /* 25 images/s */
+#define STREAM_PIX_FMT    AV_PIX_FMT_YUV420P /* default pix_fmt */
 
-#define STREAM_DURATION     10.0
-#define STREAM_FRAME_RATE   25 /* 25 images/s */
-#define STREAM_PIX_FMT      AV_PIX_FMT_YUV420P /* default pix_fmt */
-#define SCALE_FLAGS         SWS_BICUBIC
-#define INBUF_SIZE          4096
-#define SLIDER_ANIM_DUR     1000 // milliseconds
+#define SCALE_FLAGS SWS_BICUBIC
+
+#include <QDebug>
 
 struct OutputStream {
     AVStream *st;
@@ -109,32 +96,10 @@ private:
     int write_video_frame(AVFormatContext *oc, OutputStream *ost);
     void close_stream(AVFormatContext *oc, OutputStream *ost);
 
-    QQuickView* view;
-    QQuickWindow* window;
-    QObject* object;
-    QRandomGenerator randomGenerator;
-    QPropertyAnimation sliderAnimation;
-
-    QString getNumericValueAt(float timestamp);
-    float getShapeValueAt(float timestamp);
-    float getSliderValueAt(float timestamp);
-    void createSliderAnimation();
-
 public:
     Muxer();
 
-    bool load_frame(const char* filename, int* width, int* height, unsigned char** data);
-    void decode(AVCodecContext *dec_ctx, AVFrame *frame, AVPacket *pkt, const char *filename);
-    int getFrame(QString input, QString output);
-
-    int createVideo(QMap<QString, QString> args);
-
-    void renderQml(QQmlApplicationEngine* engine);
-
-    static AVFrame* QImagetoAVFrame(QImage qImage);
-    static QImage AVFrametoQImage(AVFrame* avFrame);
-    static QImage avFrame2QImage(AVFrame *frame);
-    static QImage frame2Image(AVFrame* frame);
+    int mux(QMap<QString, QString> args);
 };
 
 #endif // MUXER_H

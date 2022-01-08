@@ -1,11 +1,7 @@
 #include "transcoder.h"
 
-AVFrame* Transcoder::pFrmDst = nullptr;
-SwsContext* Transcoder::img_convert_ctx = nullptr;
-
-Transcoder::Transcoder(QQmlApplicationEngine* e) : engine(e)
+Transcoder::Transcoder()
 {
-    createSliderAnimation();
 }
 
 int Transcoder::open_input_file(const char *filename)
@@ -387,8 +383,6 @@ int Transcoder::encode_write_frame(unsigned int stream_index, int flush)
     AVPacket *enc_pkt = filter->enc_pkt;
     int ret;
 
-    create_frame_overlay(stream->dec_ctx, filt_frame);
-
     av_log(NULL, AV_LOG_INFO, "Encoding frame\n");
     /* encode filtered frame */
     av_packet_unref(enc_pkt);
@@ -465,161 +459,6 @@ int Transcoder::flush_encoder(unsigned int stream_index)
 
     av_log(NULL, AV_LOG_INFO, "Flushing stream #%u encoder\n", stream_index);
     return encode_write_frame(stream_index, 1);
-}
-
-void Transcoder::create_frame_overlay(AVCodecContext* codec_ctx, AVFrame *frame)
-{
-    if(codec_ctx && frame){
-            float timestamp = get_frame_timestamp(codec_ctx, frame);
-            qDebug() << "Pts: " << timestamp;
-
-            QImage overlay_img = get_overlay_image(timestamp);
-            QImage frame_img = frame_to_image(frame);
-        //    QImage combined_img = get_combined_image(&frame_img, &overlay_img);
-
-        //    image_to_frame(&combined_img, frame);
-
-            QString imgName = QStandardPaths::writableLocation(
-                        QStandardPaths::StandardLocation::DocumentsLocation) + "/img_" +
-                        QStringLiteral("%1").arg(frames_counter, 5, 10, QLatin1Char('0')) +
-                        ".png";
-
-            frame_img.save(imgName);
-            frames_counter++;
-    }
-}
-
-double Transcoder::get_frame_timestamp(AVCodecContext* codec_ctx, AVFrame *frame)
-{
-    double pts = 0.0;
-
-    auto timeBase = codec_ctx->time_base;
-    pts = frame->pts * av_q2d(timeBase);
-
-    return pts;
-}
-
-void Transcoder::createSliderAnimation()
-{
-    sliderAnimation.setDuration(SLIDER_ANIM_DUR);
-    sliderAnimation.setKeyValueAt(0.0, 0.0);
-    sliderAnimation.setKeyValueAt(0.5, 1.0);
-    sliderAnimation.setKeyValueAt(1.0, 0.0);
-}
-
-QString Transcoder::getNumericValueAt(float timestamp)
-{
-    static int lastTimestamp = 0;
-    static int lastValue = 0;
-
-    int currentTimestamp = static_cast<int>(timestamp * 1000.0f / 1000.0f);
-    if(currentTimestamp != lastTimestamp){
-        lastTimestamp = currentTimestamp;
-        lastValue = randomGenerator.bounded(99, 999);
-    }
-
-    return QString::number(lastValue);
-}
-
-float Transcoder::getShapeValueAt(float timestamp)
-{
-    static int lastTimestamp = 0;
-    static float lastValue = 0.0f;
-
-    int currentTimestamp = static_cast<int>(timestamp * 1000.0f / 300.0f);
-    if(currentTimestamp != lastTimestamp){
-        lastTimestamp = currentTimestamp;
-        lastValue = randomGenerator.bounded(20, 100) / 100.0f;
-    }
-
-    return lastValue;
-}
-
-float Transcoder::getSliderValueAt(float timestamp)
-{
-    int timestampInMs = timestamp * 1000;
-    int currentTime = timestampInMs % SLIDER_ANIM_DUR;
-    sliderAnimation.setCurrentTime(currentTime);
-    return sliderAnimation.currentValue().toFloat();
-}
-
-QImage Transcoder::get_overlay_image(float timestamp)
-{
-    view = new QQuickView(engine, nullptr);
-    view->setSource(QUrl(QStringLiteral("qrc:/qml/Overlay.qml")));
-    view->setColor(QColorConstants::Transparent);
-
-    QString numericValue = getNumericValueAt(timestamp);
-    float shapeValue = getShapeValueAt(timestamp);
-    float slideralue = getSliderValueAt(timestamp);
-
-    view->rootContext()->setContextProperty("OVERLAY_NUMERIC", numericValue);
-    view->rootContext()->setContextProperty("OVERLAY_SHAPE", shapeValue);
-    view->rootContext()->setContextProperty("OVERLAY_SLIDER", slideralue);
-
-    return view->grabWindow();
-}
-
-QImage Transcoder::get_combined_image(QImage *bg, QImage *overlay)
-{
-    QPainter p(bg);
-    p.drawImage(50, 50, *overlay);
-    p.end();
-
-    return *bg;
-}
-
-QImage Transcoder::frame_to_image(AVFrame *frame)
-{
-    if(pFrmDst == nullptr){
-        pFrmDst = av_frame_alloc();
-    }
-
-    if (img_convert_ctx == nullptr)
-    {
-
-        img_convert_ctx =
-          sws_getContext(frame->width, frame->height,
-                         (AVPixelFormat)frame->format, frame->width, frame->height,
-                         AV_PIX_FMT_RGB24, SWS_BICUBIC, NULL, NULL, NULL);
-
-        pFrmDst->format = AV_PIX_FMT_RGB24;
-        pFrmDst->width  = frame->width;
-        pFrmDst->height = frame->height;
-
-        if (av_frame_get_buffer(pFrmDst, 0) < 0)
-        {
-            return QImage();
-        }
-
-    }
-
-    if (img_convert_ctx == nullptr)
-    {
-
-            return QImage();
-    }
-
-    sws_scale(img_convert_ctx, (const uint8_t *const *)frame->data,
-              frame->linesize, 0, frame->height, pFrmDst->data,
-              pFrmDst->linesize);
-
-    QImage img(pFrmDst->width, pFrmDst->height, QImage::Format_RGB888);
-    for(int y=0; y<pFrmDst->height; ++y)
-    {
-
-        memcpy(img.scanLine(y), pFrmDst->data[0]+y*pFrmDst->linesize[0], pFrmDst->linesize[0]);
-    }
-
-//    av_frame_free(&pFrmDst);
-
-    return img;
-}
-
-void Transcoder::image_to_frame(QImage *image, AVFrame *frame)
-{
-    av_image_fill_arrays(frame->data, frame->linesize, (uint8_t*)(*image).bits(),
-                       (AVPixelFormat)frame->format, frame->width, frame->height, 1);
 }
 
 int Transcoder::transcode(QString input, QString output)

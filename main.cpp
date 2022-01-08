@@ -3,7 +3,6 @@
 #include <QString>
 #include <QStandardPaths>
 
-#include "ffmpegqt/ffmpegqt.h"
 #include "ffmpegqt/muxer.h"
 #include "ffmpegqt/transcoder.h"
 #include "ffmpegqt/videomaster.h"
@@ -65,10 +64,10 @@ int main(int argc, char *argv[])
 //                "/DJI_0017_TRANSCODED.MP4";
                 "/VID_20220105_125833_TRANSCODED.mp4";
 
-//    Transcoder transcoder(&engine);
-//    transcoder.transcode(input, output);
+    Transcoder transcoder;
+    transcoder.transcode(input, output);
 
-    videoMaster.generateOverlay(input, output);
+//    videoMaster.generateOverlay(input, output);
 
     return app.exec();
 }

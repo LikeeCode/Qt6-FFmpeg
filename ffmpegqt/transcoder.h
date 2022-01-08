@@ -38,17 +38,22 @@ extern "C" {
 
 #define SLIDER_ANIM_DUR 1000 // milliseconds
 
-#include "filteringcontext.h"
-#include "streamcontext.h"
+struct FilteringContext {
+    AVFilterContext *buffersink_ctx;
+    AVFilterContext *buffersrc_ctx;
+    AVFilterGraph *filter_graph;
 
-#include <QImage>
-#include <QStandardPaths>
-#include <QPropertyAnimation>
-#include <QRandomGenerator>
-#include <QQmlApplicationEngine>
-#include <QQuickView>
-#include <QQmlContext>
-#include <QPainter>
+    AVPacket *enc_pkt;
+    AVFrame *filtered_frame;
+};
+
+struct StreamContext {
+    AVCodecContext *dec_ctx;
+    AVCodecContext *enc_ctx;
+
+    AVFrame *dec_frame;
+};
+
 #include <QDebug>
 
 class Transcoder
@@ -69,29 +74,8 @@ private:
     int filter_encode_write_frame(AVFrame *frame, unsigned int stream_index);
     int flush_encoder(unsigned int stream_index);
 
-    void create_frame_overlay(AVCodecContext* codec_ctx, AVFrame* frame);
-    double get_frame_timestamp(AVCodecContext* codec_ctx, AVFrame* frame);
-    void createSliderAnimation();
-    QString getNumericValueAt(float timestamp);
-    float getShapeValueAt(float timestamp);
-    float getSliderValueAt(float timestamp);
-    QImage get_overlay_image(float timestamp);
-    QImage get_combined_image(QImage* bg, QImage* overlay);
-    QImage frame_to_image(AVFrame* frame);
-    void image_to_frame(QImage* image, AVFrame *frame);
-
-    uint64_t frames_counter = 0;
-
-    QQmlApplicationEngine* engine;
-    QPropertyAnimation sliderAnimation;
-    QRandomGenerator randomGenerator;
-    QQuickView* view;
-
-    static AVFrame* pFrmDst;
-    static SwsContext* img_convert_ctx;
-
 public:
-    Transcoder(QQmlApplicationEngine* e);
+    Transcoder();
 
     int transcode(QString input, QString output);
 };

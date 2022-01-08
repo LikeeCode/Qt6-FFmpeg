@@ -43,14 +43,31 @@ extern "C" {
 #include <QRandomGenerator>
 #include <QPropertyAnimation>
 
-#include "outputstream.h"
-
 #define STREAM_DURATION     10.0
 #define STREAM_FRAME_RATE   25 /* 25 images/s */
 #define STREAM_PIX_FMT      AV_PIX_FMT_YUV420P /* default pix_fmt */
 #define SCALE_FLAGS         SWS_BICUBIC
 #define INBUF_SIZE          4096
 #define SLIDER_ANIM_DUR     1000 // milliseconds
+
+struct OutputStream {
+    AVStream *st;
+    AVCodecContext *enc;
+
+    /* pts of the next frame that will be generated */
+    int64_t next_pts;
+    int samples_count;
+
+    AVFrame *frame;
+    AVFrame *tmp_frame;
+
+    AVPacket *tmp_pkt;
+
+    float t, tincr, tincr2;
+
+    struct SwsContext *sws_ctx;
+    struct SwrContext *swr_ctx;
+};
 
 class Muxer
 {

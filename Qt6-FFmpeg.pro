@@ -10,7 +10,9 @@ CONFIG += c++11
 RESOURCES += qml.qrc
 
 SOURCES += \
+    ffmpegqt/ffmpeg.cpp \
     ffmpegqt/muxer.cpp \
+    ffmpegqt/overlay.cpp \
     ffmpegqt/overlaygenerator.cpp \
     ffmpegqt/remuxer.cpp \
     ffmpegqt/transcoder.cpp \
@@ -18,7 +20,9 @@ SOURCES += \
     main.cpp
 
 HEADERS += \
+    ffmpegqt/ffmpeg.h \
     ffmpegqt/muxer.h \
+    ffmpegqt/overlay.h \
     ffmpegqt/overlaygenerator.h \
     ffmpegqt/remuxer.h \
     ffmpegqt/transcoder.h \

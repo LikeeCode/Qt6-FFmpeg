@@ -3,6 +3,7 @@
 #include <QString>
 #include <QStandardPaths>
 
+#include "ffmpegqt/ffmpeg.h"
 #include "ffmpegqt/muxer.h"
 #include "ffmpegqt/remuxer.h"
 #include "ffmpegqt/transcoder.h"
@@ -18,17 +19,23 @@ int main(int argc, char *argv[])
 
     QQmlApplicationEngine engine;
 
-    // Overlay
-    OverlayGenerator overlayGenerator(&engine);
-    engine.rootContext()->setContextProperty("OVERLAY_NUMERIC", overlayGenerator.numericValue);
-    engine.rootContext()->setContextProperty("OVERLAY_SHAPE", overlayGenerator.shapeValue);
-    engine.rootContext()->setContextProperty("OVERLAY_SLIDER", overlayGenerator.sliderValue);
+    QString folder = QStandardPaths::writableLocation(
+                QStandardPaths::StandardLocation::DocumentsLocation);
+    QString inputFile = "DJI_0017.MP4";
+    QString outputFile = "DJI_0017_EDITED.MP4";
 
-    // FFmpeg
-    VideoMaster videoMaster;
-    videoMaster.setOverlayGenerator(&overlayGenerator);
-    qmlRegisterType<VideoMaster>("VideoMaster", 1, 0, "VideoMaster");
-    engine.rootContext()->setContextProperty("videoMaster", &videoMaster);
+    // Remuxer
+    Remuxer remuxer;
+    remuxer.remux(folder + "/" + inputFile,
+                  folder + "/" + outputFile);
+
+    // FFmpeg and Overlay generator
+//    OverlayGenerator overlayGenerator;
+//    FFmpeg ffMpeg;
+//    ffMpeg.setOverlayGenerator(&overlayGenerator);
+//    ffMpeg.setOverlayX(100);
+//    ffMpeg.setOverlayY(100);
+//    ffMpeg.generateOverlay(folder, inputFile);
 
     const QUrl url(QStringLiteral("qrc:/qml/main.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
@@ -37,35 +44,6 @@ int main(int argc, char *argv[])
             QCoreApplication::exit(-1);
     }, Qt::QueuedConnection);
     engine.load(url);
-
-    // Muxer
-//    QString fileName = QStandardPaths::writableLocation(
-//                QStandardPaths::StandardLocation::DocumentsLocation) +
-//                "/muxer.mp4";
-//    QMap<QString, QString> args{{"filename", fileName},
-//                                {"-c:v", "libx264"}};
-//    Muxer muxer;
-//    muxer.mux(args);
-
-    // Transcoder
-    QString input = QStandardPaths::writableLocation(
-                QStandardPaths::StandardLocation::DocumentsLocation) +
-                "/DJI_0017.MP4";
-//                "/VID_20220105_125833.mp4";
-
-    QString output = QStandardPaths::writableLocation(
-                QStandardPaths::StandardLocation::DocumentsLocation) +
-                "/DJI_0017_EDITED.MP4";
-//                "/VID_20220105_125833_EDITED.mp4";
-
-    Remuxer remuxer;
-    remuxer.remux(input, output);
-
-//    Transcoder transcoder;
-//    transcoder.transcode(input, output);
-
-    // Video master
-//    videoMaster.generateOverlay(input, output);
 
     return app.exec();
 }

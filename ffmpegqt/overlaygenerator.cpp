@@ -1,17 +1,8 @@
 #include "overlaygenerator.h"
 
-SwsContext* OverlayGenerator::sws_ctx = NULL;
-
-OverlayGenerator::OverlayGenerator(QQmlApplicationEngine *e) : engine(e)
+OverlayGenerator::OverlayGenerator(QObject* parent) : QObject(parent)
 {
-    createSliderAnimation();
-}
-
-OverlayGenerator::~OverlayGenerator()
-{
-    if(sws_ctx){
-        sws_freeContext(sws_ctx);
-    }
+    overlay = new Overlay;
 }
 
 void OverlayGenerator::setOverlayX(int x)
@@ -24,85 +15,46 @@ void OverlayGenerator::setOverlayY(int y)
     overlayY = y;
 }
 
-void OverlayGenerator::setNumericValueFor(float timestamp)
+void OverlayGenerator::generateOverlayAt(AVFrame *frame, AVCodecContext* codec_ctx, double timestamp)
 {
-    int currentTimestamp = timestamp * 1000 / 1000;
-    if(currentTimestamp!= lastTimestampForNumeric){
-        lastTimestampForNumeric = currentTimestamp;
-        numericValue = QString::number(randomGenerator.bounded(99, 999));
-        engine->rootContext()->setContextProperty("OVERLAY_NUMERIC", numericValue);
-    }
-}
+    // Create overlay image
+    QImage overlayImage = overlay->getImageAtTimestamp(timestamp);
 
-void OverlayGenerator::setShapeValueFor(float timestamp)
-{
-    int currentTimestamp = timestamp * 1000 / 300;
-    if(currentTimestamp != lastTimestampForShape){
-        lastTimestampForShape = currentTimestamp;
-        shapeValue = (float)randomGenerator.generateDouble();
-        engine->rootContext()->setContextProperty("OVERLAY_SHAPE", shapeValue);
-    }
-}
+    // Create frame image
+    frameImage = avFrameToQImage(frame, codec_ctx);
+//    frameImage = QImage(frame->width, frame->height, QImage::Format_RGBA8888);
+//    frameImage.fill(QColorConstants::Blue);
 
-void OverlayGenerator::setSliderValueFor(float timestamp)
-{
-    int timestampInMs = timestamp * 1000;
-    int currentTime = timestampInMs % SLIDER_ANIM_DUR;
-    sliderAnimation.setCurrentTime(currentTime);
-    sliderValue = sliderAnimation.currentValue().toFloat();
-    engine->rootContext()->setContextProperty("OVERLAY_SLIDER", sliderValue);
-}
-
-void OverlayGenerator::createSliderAnimation()
-{
-    sliderAnimation.setDuration(SLIDER_ANIM_DUR);
-    sliderAnimation.setKeyValueAt(0.0, 0.0);
-    sliderAnimation.setKeyValueAt(0.5, 1.0);
-    sliderAnimation.setKeyValueAt(1.0, 0.0);
-}
-
-void OverlayGenerator::generateOverlayAt(AVFrame *frame, AVCodecContext* codec_ctx,
-                                         double timestamp)
-{
-    // Generate overlay image
-    setNumericValueFor(timestamp);
-    setShapeValueFor(timestamp);
-    setSliderValueFor(timestamp);
-
-    view = new QQuickView(engine, nullptr);
-    view->setSource(QUrl(QStringLiteral("qrc:/qml/Overlay.qml")));
-    view->setColor(QColorConstants::Transparent);
-
-    QImage overlayImage = view->grabWindow();
-
-    // Combine frame with overlay
-    QImage frameImage(view->width(), view->height(), QImage::Format_RGBA8888);
-    frameImage.fill(QColorConstants::Transparent);
+    // Draw overlay over frame image
     QPainter painter(&frameImage);
     painter.drawImage(overlayX, overlayY, overlayImage);
-    painter.end();
 
-    QImageToAVFrame(frameImage, frame, overlayX, overlayY);
+    // Convert overlayed image into frame
+    qImageToAVFrame(frameImage, frame, codec_ctx);
+
+//    QImage convertedFrame = avFrameToQImage(frame, codec_ctx);
+//    QString name = QStandardPaths::writableLocation(
+//                QStandardPaths::StandardLocation::DocumentsLocation) +
+//                "/converted_frame.png";
+//    convertedFrame.save(name);
 }
 
-QImage OverlayGenerator::avFrameToQImage(AVFrame* frame, AVCodecContext* codec_ctx)
+QImage OverlayGenerator::avFrameToQImage(AVFrame* frame, AVCodecContext* codec_ctx,
+                                         float scalingFactor)
 {
-    if(!sws_ctx){
-        sws_ctx = sws_getContext(frame->width, frame->height, codec_ctx->pix_fmt,
-                                 frame->width, frame->height, AV_PIX_FMT_RGB0,
-                                 SWS_BICUBIC, NULL, NULL, NULL);
-
-        if(!sws_ctx){
-            qDebug() << "Could not initialize SwsContext";
-            return QImage();
-        }
-    }
+    SwsContext *swsCtx = sws_getContext(
+                frame->width, frame->height,
+                codec_ctx->pix_fmt,
+                frame->width * scalingFactor,
+                frame->height * scalingFactor,
+                AV_PIX_FMT_RGB0,
+                SWS_BICUBIC, NULL, NULL, NULL);
 
     uint8_t* src_data = new uint8_t[frame->width * frame->height * 4];
     uint8_t* dest_data[4] = { src_data, NULL, NULL, NULL };
     int dest_linesize[4] = {frame->width * 4, 0, 0, 0};
 
-    sws_scale(sws_ctx, frame->data, frame->linesize,
+    sws_scale(swsCtx, frame->data, frame->linesize,
               0, frame->height, // start from horizontal zero to the height
               dest_data, dest_linesize);
 
@@ -113,71 +65,30 @@ QImage OverlayGenerator::avFrameToQImage(AVFrame* frame, AVCodecContext* codec_c
                dest_linesize[0]);
     }
 
+    delete[] src_data;
+    sws_freeContext(swsCtx);
+
     return image;
 }
 
-void OverlayGenerator::QImageToAVFrame(QImage image, AVFrame* frame, int offset_x, int offset_y)
+void OverlayGenerator::qImageToAVFrame(QImage image, AVFrame* frame, AVCodecContext* codec_ctx)
 {
-    QColor color;
-    int r, g, b, a;
-    int Y, U, V;
+    // Prepare SWS Context
+    SwsContext *swsCtx = sws_getContext(
+                image.width(), image.height(), AV_PIX_FMT_RGB0,
+                frame->width, frame->height, codec_ctx->pix_fmt,
+                SWS_BICUBIC, NULL, NULL, NULL);
 
-    int w_max = ((image.width() + offset_x) < frame->width) ? (image.width() + offset_x) : frame->width;
-    int h_max = ((image.height() + offset_y) < frame->height) ? (image.height() + offset_y) : frame->height;
+    // Preparing the buffer to get RGBA data
+    uint8_t* bits = (uint8_t*)image.bits();
+    uint8_t* rgb_data[4] = { bits, 0, 0, 0 };
+    int rgb_linesize[4] = { (int)image.bytesPerLine(), 0, 0, 0 };
 
-    for (int h = offset_y; h < h_max; h++)
-    {
-        for (int w = offset_x; w < w_max; w++)
-        {
-            color = image.pixelColor(w - offset_x, h - offset_y);
+    // Make pixel format conversion
+    sws_scale(swsCtx,
+              rgb_data, rgb_linesize,
+              0, image.height(),
+              frame->data, frame->linesize);
 
-            r = color.red();
-            g = color.green();
-            b = color.blue();
-            a = color.alpha();
-
-            if(a > 0){
-                RGBtoYUV(r, g, b, Y, U, V);
-
-                frame->data[0][h * frame->linesize[0] + w] = (uchar)Y;
-
-                if(h % 2 == 0 && w % 2 == 0)
-                {
-                    frame->data[1][h/2 * (frame->linesize[1]) + w/2] = (uchar)U;
-                    frame->data[2][h/2 * (frame->linesize[2]) + w/2] = (uchar)V;
-                }
-            }
-        }
-    }
-}
-
-void OverlayGenerator::RGBtoYUV(const int R, const int G, const int B, int& Y, int& U, int& V)
-{
-    Y = ((  66 * R + 129 * G +  25 * B) >> 8) +  16;
-    U = ((- 38 * R + -74 * G + 112 * B) >> 8) + 128;
-    V = (( 112 * R + -94 * G + -18 * B) >> 8) + 128;
-}
-
-void OverlayGenerator::RGBtoYUV(const double R, const double G, const double B, double& Y, double& U, double& V)
-{
-    Y =  0.257 * R + 0.504 * G + 0.098 * B +  16;
-    U = -0.148 * R - 0.291 * G + 0.439 * B + 128;
-    V =  0.439 * R - 0.368 * G - 0.071 * B + 128;
-}
-
-void OverlayGenerator::YUVtoRGB(int Y, int U, int V, int& R, int& G, int& B)
-{
-    R = (Y + 1.4075 * (V - 128));
-    G = (Y - 0.3455 * (U - 128) - (0.7169 * (V - 128)));
-    B = (Y + 1.7790 * (U - 128));
-}
-
-void OverlayGenerator::YUVtoRGB(double Y, double U, double V, double& R, double& G, double& B)
-{
-    Y -= 16;
-    U -= 128;
-    V -= 128;
-    R = 1.164 * Y             + 1.596 * V;
-    G = 1.164 * Y - 0.392 * U - 0.813 * V;
-    B = 1.164 * Y + 2.017 * U;
+    sws_freeContext(swsCtx);
 }

@@ -140,7 +140,7 @@ int FFmpeg::openOutputFile(const char *filename)
             return ret;
         }
 
-        output_audio_stream->time_base = audio_encodec_ctx->time_base;
+        output_audio_stream->time_base = av_inv_q(audio_decodec_ctx->framerate);
     }
 
     if(input_video_stream_index != -1){
@@ -164,7 +164,7 @@ int FFmpeg::openOutputFile(const char *filename)
         video_encodec_ctx->height = video_decodec_ctx->height;
         video_encodec_ctx->sample_aspect_ratio = video_decodec_ctx->sample_aspect_ratio;
         video_encodec_ctx->pix_fmt = video_encoder->pix_fmts ? video_encoder->pix_fmts[0] : video_decodec_ctx->pix_fmt;
-        video_encodec_ctx->time_base = av_inv_q(video_decodec_ctx->framerate);
+        video_encodec_ctx->time_base = video_decodec_ctx->time_base;
 
         if (output_fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
             video_encodec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -181,7 +181,7 @@ int FFmpeg::openOutputFile(const char *filename)
             return ret;
         }
 
-        output_video_stream->time_base = video_encodec_ctx->time_base;
+        output_video_stream->time_base = av_inv_q(video_decodec_ctx->framerate);
     }
 
     av_dump_format(output_fmt_ctx, 0, filename, 1);
@@ -338,9 +338,9 @@ void FFmpeg::processVideoFile(QString input, QString output)
 
                 frame->pts = frame->best_effort_timestamp;
 
-                if(overlayGenerator){
-                    overlayGenerator->generateOverlayAt(frame, video_decodec_ctx, pts);
-                }
+//                if(overlayGenerator){
+//                    overlayGenerator->generateOverlayAt(frame, video_decodec_ctx, pts);
+//                }
 
                 writeFrame(output_fmt_ctx, video_encodec_ctx,
                             output_video_stream, frame, packet);

@@ -553,5 +553,7 @@ int Muxer::mux(QMap<QString, QString> args){
     /* free the stream */
     avformat_free_context(oc);
 
+    qDebug() << "FINISHED";
+
     return 0;
 }

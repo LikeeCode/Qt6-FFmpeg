@@ -21,21 +21,31 @@ int main(int argc, char *argv[])
 
     QString folder = QStandardPaths::writableLocation(
                 QStandardPaths::StandardLocation::DocumentsLocation);
-    QString inputFile = "DJI_0017.MP4";
+//    QString inputFile = "DJI_0017.MP4";
+//    QString inputFile = "DJI_0031.MP4";
+    QString inputFile = "VID_20220105_125833.mp4";
     QString outputFile = "DJI_0017_EDITED.MP4";
 
-    // Remuxer
-    Remuxer remuxer;
-    remuxer.remux(folder + "/" + inputFile,
-                  folder + "/" + outputFile);
+    // Muxer
+//    QMap<QString, QString> args{
+//        {"filename", folder + "/muxer.mp4"},
+//        {"-c:v", "libx264"}
+//    };
+//    Muxer muxer;
+//    muxer.mux(args);
+
+    // Remuxer (doesn't work)
+//    Remuxer remuxer;
+//    remuxer.remux(folder + "/" + inputFile,
+//                  folder + "/" + outputFile);
 
     // FFmpeg and Overlay generator
-//    OverlayGenerator overlayGenerator;
-//    FFmpeg ffMpeg;
-//    ffMpeg.setOverlayGenerator(&overlayGenerator);
-//    ffMpeg.setOverlayX(100);
-//    ffMpeg.setOverlayY(100);
-//    ffMpeg.generateOverlay(folder, inputFile);
+    OverlayGenerator overlayGenerator;
+    FFmpeg ffMpeg;
+    ffMpeg.setOverlayGenerator(&overlayGenerator);
+    ffMpeg.setOverlayX(100);
+    ffMpeg.setOverlayY(100);
+    ffMpeg.generateOverlay(folder, inputFile);
 
     const QUrl url(QStringLiteral("qrc:/qml/main.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,

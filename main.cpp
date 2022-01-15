@@ -24,6 +24,7 @@ int main(int argc, char *argv[])
 //    QString inputFile = "DJI_0017.MP4";
 //    QString inputFile = "DJI_0031.MP4";
     QString inputFile = "VID_20220105_125833.mp4";
+//    QString inputFile = "muxer.mp4";
     QString outputFile = "DJI_0017_EDITED.MP4";
 
     // Muxer

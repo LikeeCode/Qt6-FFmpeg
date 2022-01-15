@@ -329,6 +329,13 @@ void FFmpeg::processVideoFile(QString input, QString output)
                 }
 
                 ret = avcodec_receive_frame(video_decodec_ctx, frame);
+
+//                QString folder = QStandardPaths::writableLocation(
+//                            QStandardPaths::StandardLocation::DocumentsLocation);
+//                QImage img = OverlayGenerator::avFrameToQImage(frame, video_decodec_ctx);
+//                img.save(folder + "/img.png");
+
+
                 if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN)){
                     break;
                 }
